@@ -1,0 +1,635 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "New York City",
+        "population": 8804190,
+        "wikidata": "http://www.wikidata.org/entity/Q60"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.006111111,
+          40.712777777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Chicago",
+        "population": 2746388,
+        "wikidata": "http://www.wikidata.org/entity/Q1297"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.627777777,
+          41.881944444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Queens",
+        "population": 2405464,
+        "wikidata": "http://www.wikidata.org/entity/Q18424"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.917777777,
+          40.704166666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Houston",
+        "population": 2304580,
+        "wikidata": "http://www.wikidata.org/entity/Q16555"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.383055555,
+          29.762777777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Manhattan",
+        "population": 1694251,
+        "wikidata": "http://www.wikidata.org/entity/Q11299"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.994166666,
+          40.728333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Phoenix",
+        "population": 1608139,
+        "wikidata": "http://www.wikidata.org/entity/Q16556"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -112.073888888,
+          33.448333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Philadelphia",
+        "population": 1603797,
+        "wikidata": "http://www.wikidata.org/entity/Q1345"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.163611111,
+          39.952777777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "The Bronx",
+        "population": 1472654,
+        "wikidata": "http://www.wikidata.org/entity/Q18426"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.873333333,
+          40.846666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "San Antonio",
+        "population": 1434625,
+        "wikidata": "http://www.wikidata.org/entity/Q975"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.493888888,
+          29.425
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "San Diego",
+        "population": 1386932,
+        "wikidata": "http://www.wikidata.org/entity/Q16552"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.1625,
+          32.715
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dallas",
+        "population": 1304379,
+        "wikidata": "http://www.wikidata.org/entity/Q16557"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.808888888,
+          32.779166666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "San Jose",
+        "population": 1013240,
+        "wikidata": "http://www.wikidata.org/entity/Q16553"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.872777777,
+          37.304166666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Austin",
+        "population": 961855,
+        "wikidata": "http://www.wikidata.org/entity/Q16559"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.733333333,
+          30.3
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Jacksonville",
+        "population": 949611,
+        "wikidata": "http://www.wikidata.org/entity/Q16568"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.65,
+          30.316666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Fort Worth",
+        "population": 918915,
+        "wikidata": "http://www.wikidata.org/entity/Q16558"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.3325,
+          32.756388888
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Columbus",
+        "population": 905748,
+        "wikidata": "http://www.wikidata.org/entity/Q16567"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.000555555,
+          39.962222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Indianapolis",
+        "population": 887642,
+        "wikidata": "http://www.wikidata.org/entity/Q6346"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.158055555,
+          39.768611111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Charlotte",
+        "population": 874579,
+        "wikidata": "http://www.wikidata.org/entity/Q16565"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.843333333,
+          35.226944444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "San Francisco",
+        "population": 873965,
+        "wikidata": "http://www.wikidata.org/entity/Q62"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.419444444,
+          37.775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Seattle",
+        "population": 737015,
+        "wikidata": "http://www.wikidata.org/entity/Q5083"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.33,
+          47.605
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Denver",
+        "population": 715522,
+        "wikidata": "http://www.wikidata.org/entity/Q16554"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.984722222,
+          39.739166666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Washington, D.C.",
+        "population": 689545,
+        "wikidata": "http://www.wikidata.org/entity/Q61"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.036666666,
+          38.895
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Nashville",
+        "population": 689447,
+        "wikidata": "http://www.wikidata.org/entity/Q23197"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.774444444,
+          36.162222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Oklahoma City",
+        "population": 681054,
+        "wikidata": "http://www.wikidata.org/entity/Q34863"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.535277777,
+          35.482222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "El Paso",
+        "population": 678815,
+        "wikidata": "http://www.wikidata.org/entity/Q16562"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.488611111,
+          31.759166666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Boston",
+        "population": 675647,
+        "wikidata": "http://www.wikidata.org/entity/Q100"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.057777777,
+          42.360277777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Portland",
+        "population": 652503,
+        "wikidata": "http://www.wikidata.org/entity/Q6106"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.666666666,
+          45.516666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Las Vegas",
+        "population": 641903,
+        "wikidata": "http://www.wikidata.org/entity/Q23768"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -115.148611111,
+          36.167222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Detroit",
+        "population": 639111,
+        "wikidata": "http://www.wikidata.org/entity/Q12439"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.0475,
+          42.331666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Memphis",
+        "population": 633104,
+        "wikidata": "http://www.wikidata.org/entity/Q16563"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -90.051944444,
+          35.146111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Baltimore",
+        "population": 585708,
+        "wikidata": "http://www.wikidata.org/entity/Q5092"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.615,
+          39.286388888
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Milwaukee",
+        "population": 577222,
+        "wikidata": "http://www.wikidata.org/entity/Q37836"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.95,
+          43.05
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Albuquerque",
+        "population": 564559,
+        "wikidata": "http://www.wikidata.org/entity/Q34804"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.650277777,
+          35.084444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tucson",
+        "population": 542629,
+        "wikidata": "http://www.wikidata.org/entity/Q18575"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -110.926388888,
+          32.221666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Fresno",
+        "population": 542107,
+        "wikidata": "http://www.wikidata.org/entity/Q43301"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.792222222,
+          36.781666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sacramento",
+        "population": 524943,
+        "wikidata": "http://www.wikidata.org/entity/Q18013"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.486111111,
+          38.575277777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kansas City",
+        "population": 508090,
+        "wikidata": "http://www.wikidata.org/entity/Q41819"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.583333333,
+          39.05
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mesa",
+        "population": 504258,
+        "wikidata": "http://www.wikidata.org/entity/Q49261"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -111.831388888,
+          33.415
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Atlanta",
+        "population": 498715,
+        "wikidata": "http://www.wikidata.org/entity/Q23556"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.389722222,
+          33.754444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Staten Island",
+        "population": 495747,
+        "wikidata": "http://www.wikidata.org/entity/Q18432"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.146944444,
+          40.571944444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Berkeley",
+        "population": null,
+        "wikidata": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.2727,
+          37.8716
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Miami",
+        "population": null,
+        "wikidata": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.1918,
+          25.7617
+        ]
+      }
+    }
+  ]
+}

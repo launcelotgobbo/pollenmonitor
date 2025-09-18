@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "city": "new-york", "date": "2024-05-12", "count": 72, "severity": "high" },
+      "geometry": { "type": "Point", "coordinates": [ -73.978, 40.754 ] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "san-francisco", "date": "2024-05-12", "count": 35, "severity": "moderate" },
+      "geometry": { "type": "Point", "coordinates": [ -122.419, 37.774 ] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "seattle", "date": "2024-05-12", "count": 20, "severity": "low" },
+      "geometry": { "type": "Point", "coordinates": [ -122.335, 47.608 ] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "dallas", "date": "2024-05-12", "count": 85, "severity": "very_high" },
+      "geometry": { "type": "Point", "coordinates": [ -96.797, 32.776 ] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "chicago", "date": "2024-05-12", "count": 50, "severity": "moderate" },
+      "geometry": { "type": "Point", "coordinates": [ -87.6298, 41.8781 ] }
+    }
+  ]
+}
+

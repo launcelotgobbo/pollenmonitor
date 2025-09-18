@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+
+# Next.js
+.next
+out
+.turbo
+coverage
+
+# Env
+.env*
+!.env.example
+.env.local
+.vercel
+
+# OS/Editor
+.DS_Store
+*.log
+.idea
+.vscode
+*.swp
+*.swo
+
+# Package managers
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
