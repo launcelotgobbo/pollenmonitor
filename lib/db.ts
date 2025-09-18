@@ -1,7 +1,8 @@
 import { Pool, defaults, type QueryResult, type QueryResultRow } from 'pg';
 // Relax TLS verification for Supabase pooled endpoints which can report self-signed chains
 try {
-  if (process.env.POSTGRES_URL && /supabase\.co|supabase\.com/.test(process.env.POSTGRES_URL)) {
+  const url = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '';
+  if (/supabase\.(co|com)/.test(url)) {
     defaults.ssl = { rejectUnauthorized: false } as any;
   }
 } catch {}
@@ -14,7 +15,8 @@ export type PollenReading = {
   is_forecast?: boolean | null;
 };
 
-const pool = new Pool({ connectionString: process.env.POSTGRES_URL, ssl: { rejectUnauthorized: false } });
+const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
 
 async function q<T extends QueryResultRow = QueryResultRow>(
   text: string,
