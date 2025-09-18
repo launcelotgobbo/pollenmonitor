@@ -29,7 +29,7 @@ try {
   (process.env as any).NODE_TLS_REJECT_UNAUTHORIZED = '0';
 } catch {}
 
-const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false, require: true } });
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
 
 async function q<T extends QueryResultRow = QueryResultRow>(
   text: string,
