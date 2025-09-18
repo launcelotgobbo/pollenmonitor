@@ -6,9 +6,10 @@ export async function GET(_req: NextRequest) {
     const dates = await getAvailableDates(365);
     return Response.json({ dates });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'failed' }), { status: 500 });
+    console.error('[available-dates] error:', e);
+    return new Response(JSON.stringify({ error: 'DB unavailable. Check POSTGRES_URL and network.' }), { status: 500 });
   }
 }
 
 export const dynamic = 'force-dynamic';
-
+export const runtime = 'nodejs';
