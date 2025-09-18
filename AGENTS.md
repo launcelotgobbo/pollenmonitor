@@ -50,10 +50,20 @@
 - Vercel: connect repo and set env vars in Project Settings.
 - Local env: store secrets in .env.local; provide examples in .env.example.
 - Useful: vercel env pull .env.local to sync environment.
+ 
+## Operations
+- Migrations: run `npm run db:migrate` locally or execute `migrations/001_init.sql` in your DB once.
+- Ingest Google (all cities):
+  - Local: `curl -X POST \
+    -H "x-ingest-token: $INGEST_TOKEN" \
+    "http://localhost:3000/api/ingest-google"`
+  - Single city: append `?city=new-york-city`.
+  - Dry run: add `&dry=true` to skip DB writes.
+- Cron (Vercel): schedule daily POST to `/api/ingest-google` with header `x-ingest-token: $INGEST_TOKEN`.
 
 ## Cron & Logging
-- Scheduling: use Vercel Cron to call an ingest endpoint (e.g., `/api/ingest`) on a fixed cadence (daily/hourly).
+- Scheduling: use Vercel Cron to call `/api/ingest-google?days=5` daily (and optionally hourly for “today”).
 - Required logs: record both success and failure for each run.
   - Structured console logs (visible in Vercel Function Logs), e.g., `{ level: 'info'|'error', job: 'ingest', status, count, ts }`.
-  - Optional persistence: `ingest_logs(id uuid, ts timestamptz, job text, status text, details jsonb)`; insert a row per run.
+  - Persistence: `ingest_logs` captures status + summary JSON.
 - Alerting: configure Vercel Alerts on function errors; include correlation IDs in logs to trace requests.

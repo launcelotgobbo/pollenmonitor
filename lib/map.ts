@@ -23,7 +23,6 @@ export function getStyleUrl(): string {
   if (mapTilerKey) {
     return `https://api.maptiler.com/maps/streets/style.json?key=${mapTilerKey}`;
   }
-  // Fallback demo style (do not use in production) — no key required
-  return 'https://demotiles.maplibre.org/style.json';
+  // Local raster OSM style fallback (dev only)
+  return '/map-style.json';
 }
-

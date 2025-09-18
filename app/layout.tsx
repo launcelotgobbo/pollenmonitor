@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import React from 'react';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'Pollen Monitor',
@@ -16,8 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </a>
         </header>
         <main>{children}</main>
+        <Analytics />
       </body>
     </html>
   );
 }
-

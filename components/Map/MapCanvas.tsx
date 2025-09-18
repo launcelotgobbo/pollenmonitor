@@ -5,8 +5,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_VIEW, getStyleUrl } from '@/lib/map';
 import { useEffect, useRef } from 'react';
 
-export default function MapCanvas() {
+export default function MapCanvas({ date }: { date: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -21,6 +23,7 @@ export default function MapCanvas() {
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    mapRef.current = map;
 
     const addOrUpdateSource = (geojson: any) => {
       const id = 'pollen';
@@ -86,13 +89,9 @@ export default function MapCanvas() {
         filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-color': [
-            'match',
-            ['get', 'severity'],
-            'low', '#4caf50',
-            'moderate', '#ffb300',
-            'high', '#fb8c00',
-            'very_high', '#e53935',
-            /* other */ '#9e9e9e',
+            'case',
+            ['==', ['get', 'is_forecast'], true], '#1976d2',
+            '#2e7d32'
           ],
           'circle-radius': 6,
           'circle-stroke-width': 1,
@@ -106,12 +105,12 @@ export default function MapCanvas() {
         const feature = (e.features && e.features[0]) as any;
         if (!feature) return;
         const coords = feature.geometry.coordinates.slice();
-        const name = feature.properties?.name || 'City';
-        const population = feature.properties?.population;
-        const popText = population ? `<br/>Population: ${Number(population).toLocaleString()}` : '';
+        const name = feature.properties?.city || 'City';
+        const count = feature.properties?.count;
+        const isForecast = !!feature.properties?.is_forecast;
         popup
           .setLngLat(coords)
-          .setHTML(`<div style="font-size:12px"><strong>${name}</strong>${popText}</div>`)
+          .setHTML(`<div style="font-size:12px"><strong>${name}</strong><br/>Count: ${count ?? '-'}${isForecast ? ' (forecast)' : ''}</div>`)
           .addTo(map);
         map.getCanvas().style.cursor = 'pointer';
       });
@@ -124,8 +123,8 @@ export default function MapCanvas() {
       map.on('click', 'unclustered-point', (e) => {
         const feature = e.features && e.features[0] as any;
         if (!feature) return;
-        const coords = feature.geometry.coordinates.slice();
-        map.easeTo({ center: coords, zoom: Math.max(map.getZoom(), 8) });
+        const slug = feature.properties?.city;
+        if (slug) window.location.href = `/city/${encodeURIComponent(slug)}`;
       });
 
       // Zoom into clusters on click
@@ -150,6 +149,9 @@ export default function MapCanvas() {
     };
 
     map.on('load', () => {
+      loadedRef.current = true;
+      // Ensure correct sizing in case container dimensions changed pre-load
+      try { map.resize(); } catch {}
       // Add US state boundaries overlay
       if (!map.getSource('us-states')) {
         map.addSource('us-states', {
@@ -169,22 +171,118 @@ export default function MapCanvas() {
           },
         } as any);
       }
-
-      fetch('/data/us-top-40-cities.geojson')
-        .then((r) => r.json())
-        .then(addOrUpdateSource)
-        .catch(() => {});
+      // initial load
+      if (date) {
+        const url = `/api/map-data?date=${encodeURIComponent(date)}&_=${Date.now()}`;
+        fetch(url, { cache: 'no-store' })
+          .then((r) => r.json())
+          .then(addOrUpdateSource)
+          .catch(() => {});
+      }
     });
 
+    // Keep map sized correctly on viewport changes
+    const onResize = () => {
+      try { map.resize(); } catch {}
+    };
+    window.addEventListener('resize', onResize);
+
     return () => {
+      window.removeEventListener('resize', onResize);
       map.remove();
     };
   }, []);
 
+  // Update data when date changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !date) return;
+    const url = `/api/map-data?date=${encodeURIComponent(date)}&_=${Date.now()}`;
+    fetch(url, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((geojson) => {
+        const id = 'pollen';
+        const src = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+        if (src && 'setData' in src) {
+          src.setData(geojson as any);
+          return;
+        }
+        // Source/layers not created yet — create now
+        if (!map.getSource(id)) {
+          map.addSource(id, { type: 'geojson', data: geojson, cluster: false } as any);
+        }
+        if (!map.getLayer('unclustered-point')) {
+          map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: id,
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+              'circle-color': [
+                'case',
+                ['==', ['get', 'is_forecast'], true], '#1976d2',
+                '#2e7d32',
+              ],
+              'circle-radius': 6,
+              'circle-stroke-width': 1,
+              'circle-stroke-color': '#ffffff',
+            },
+          } as any);
+
+          const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+          map.on('mousemove', 'unclustered-point', (e) => {
+            const feature = (e.features && e.features[0]) as any;
+            if (!feature) return;
+            const coords = feature.geometry.coordinates.slice();
+            const name = feature.properties?.city || 'City';
+            const count = feature.properties?.count;
+            const isForecast = !!feature.properties?.is_forecast;
+            const tree = feature.properties?.tree;
+            const grass = feature.properties?.grass;
+            const weed = feature.properties?.weed;
+            const series = feature.properties?.series as Array<any> | null | undefined;
+            const rows = Array.isArray(series) && series.length
+              ? series
+              : [{ date, tree: feature.properties?.tree, grass: feature.properties?.grass, weed: feature.properties?.weed }];
+            const tableHtml = rows.length
+              ? `<table style="font-size:12px; border-collapse:collapse; margin-top:4px;">`
+                + `<thead><tr><th style="text-align:left;padding:2px 6px;">Date</th><th style="text-align:right;padding:2px 6px;">Tree</th><th style="text-align:right;padding:2px 6px;">Grass</th><th style="text-align:right;padding:2px 6px;">Weed</th></tr></thead>`
+                + `<tbody>`
+                + rows.map((r: any, idx: number) => {
+                    const color = idx === 0 ? '#212121' : '#9e9e9e';
+                    return `<tr>`
+                      + `<td style="padding:2px 6px;color:${color}">${r.date}</td>`
+                      + `<td style="padding:2px 6px;text-align:right;color:${color}">${r.tree ?? '-'}</td>`
+                      + `<td style="padding:2px 6px;text-align:right;color:${color}">${r.grass ?? '-'}</td>`
+                      + `<td style="padding:2px 6px;text-align:right;color:${color}">${r.weed ?? '-'}</td>`
+                      + `</tr>`;
+                  }).join('')
+                + `</tbody></table>`
+              : '';
+            popup
+              .setLngLat(coords)
+              .setHTML(`<div style="font-size:12px"><strong>${name}</strong>${tableHtml}</div>`)
+              .addTo(map);
+            map.getCanvas().style.cursor = 'pointer';
+          });
+          map.on('mouseleave', 'unclustered-point', () => {
+            map.getCanvas().style.cursor = '';
+          });
+          map.on('click', 'unclustered-point', (e) => {
+            const feature = (e.features && e.features[0]) as any;
+            if (!feature) return;
+            const slug = feature.properties?.city;
+            if (slug) window.location.href = `/city/${encodeURIComponent(slug)}`;
+          });
+        }
+      })
+      .catch(() => {});
+  }, [date]);
+
   return (
     <div
       ref={ref}
-      style={{ height: '70vh', width: '100%', borderRadius: 8, overflow: 'hidden' }}
+      style={{ height: '100vh', width: '100%', overflow: 'hidden' }}
     />
   );
 }

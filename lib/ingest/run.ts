@@ -1,7 +1,7 @@
 import { ambeeCurrent, ambeeHistorical } from './ambee';
 import { googleForecast } from './google';
 import { CityTarget, ProviderReading } from './types';
-import { ensureSchema, upsertPollenReading, logIngest } from '@/lib/db';
+import { upsertPollenReading, logIngest } from '@/lib/db';
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -41,7 +41,6 @@ export async function runIngest(options: { date?: string; includeForecast?: bool
   const start = Date.now();
   const date = options.date || new Date().toISOString().slice(0, 10);
   const includeForecast = options.includeForecast ?? true;
-  await ensureSchema();
   const cities = await loadCityTargets();
 
   let ok = 0;
