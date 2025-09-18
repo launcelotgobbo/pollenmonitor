@@ -60,6 +60,9 @@
   - Single city: append `?city=new-york-city`.
   - Dry run: add `&dry=true` to skip DB writes.
 - Cron (Vercel): schedule daily POST to `/api/ingest-google` with header `x-ingest-token: $INGEST_TOKEN`.
+  - Alternatively, use built-in cron via `vercel.json` (already added): daily at 08:00 UTC hitting `/api/cron/daily-ingest`.
+  - Auth: Vercel Cron includes `x-vercel-cron` header which the endpoint accepts. For manual runs use `/api/cron/daily-ingest?token=$INGEST_TOKEN`.
+  - Logs: Each run is recorded in `ingest_logs` with counts + duration.
 
 ## Cron & Logging
 - Scheduling: use Vercel Cron to call `/api/ingest-google?days=5` daily (and optionally hourly for “today”).
