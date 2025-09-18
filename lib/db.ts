@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 // In local dev, relax TLS verification to handle self-signed cert chains from pooled endpoints
 if (process.env.NODE_ENV !== 'production') {
   // eslint-disable-next-line no-process-env
@@ -15,7 +15,10 @@ export type PollenReading = {
 
 const pool = new Pool({ connectionString: process.env.POSTGRES_URL, ssl: { rejectUnauthorized: false } });
 
-async function q<T = any>(text: string, params?: any[]) {
+async function q<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params?: any[],
+): Promise<QueryResult<T>> {
   const res = await pool.query<T>(text, params);
   return res;
 }

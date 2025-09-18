@@ -3,12 +3,12 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_VIEW, getStyleUrl } from '@/lib/map';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function MapCanvas({ date }: { date: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const loadedRef = useRef(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -149,7 +149,7 @@ export default function MapCanvas({ date }: { date: string }) {
     };
 
     map.on('load', () => {
-      loadedRef.current = true;
+      setMapLoaded(true);
       // Ensure correct sizing in case container dimensions changed pre-load
       try { map.resize(); } catch {}
       // Add US state boundaries overlay
@@ -171,14 +171,7 @@ export default function MapCanvas({ date }: { date: string }) {
           },
         } as any);
       }
-      // initial load
-      if (date) {
-        const url = `/api/map-data?date=${encodeURIComponent(date)}&_=${Date.now()}`;
-        fetch(url, { cache: 'no-store' })
-          .then((r) => r.json())
-          .then(addOrUpdateSource)
-          .catch(() => {});
-      }
+      // no initial fetch here; handled by effect watching mapLoaded + date
     });
 
     // Keep map sized correctly on viewport changes
@@ -193,10 +186,10 @@ export default function MapCanvas({ date }: { date: string }) {
     };
   }, []);
 
-  // Update data when date changes
+  // Update data when map is ready and/or date changes
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !date) return;
+    if (!map || !mapLoaded || !date) return;
     const url = `/api/map-data?date=${encodeURIComponent(date)}&_=${Date.now()}`;
     fetch(url, { cache: 'no-store' })
       .then((r) => r.json())
@@ -277,7 +270,7 @@ export default function MapCanvas({ date }: { date: string }) {
         }
       })
       .catch(() => {});
-  }, [date]);
+  }, [date, mapLoaded]);
 
   return (
     <div
