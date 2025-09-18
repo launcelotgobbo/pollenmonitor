@@ -1,13 +1,17 @@
 import { NextRequest } from 'next/server';
-import { getLatestDate } from '@/lib/db';
+import { supabaseGet } from '@/lib/supabaseRest';
 
 export async function GET(_req: NextRequest) {
   try {
-    const date = await getLatestDate();
-    return Response.json({ date });
+    const rows = await supabaseGet<Array<{ date: string }>>(
+      'pollen_readings',
+      'select=date&order=date.desc&limit=1',
+    );
+    const latest = rows?.[0]?.date || new Date().toISOString().slice(0, 10);
+    return Response.json({ date: latest });
   } catch (e: any) {
     console.error('[latest-date] error:', e);
-    return new Response(JSON.stringify({ error: 'DB unavailable. Check POSTGRES_URL and network.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check SUPABASE_URL/ANON_KEY.' }), { status: 500 });
   }
 }
 
