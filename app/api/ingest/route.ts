@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await runIngest({ date, includeForecast });
-    return Response.json({ ok: true, ...result });
+    return Response.json({ ...result });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: e?.message || 'ingest failed' }), {
       status: 500,

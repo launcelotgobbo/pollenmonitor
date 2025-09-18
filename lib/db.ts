@@ -122,7 +122,8 @@ export async function upsertPollenPlants(
 
 export async function logIngest(status: string, details: Record<string, any>) {
   try {
-    await sql`INSERT INTO ingest_logs (job, status, details) VALUES ('ingest', ${status}, ${details}::jsonb)`;
+    const json = JSON.stringify(details);
+    await sql`INSERT INTO ingest_logs (job, status, details) VALUES ('ingest', ${status}, ${json}::jsonb)`;
   } catch {}
 }
 
