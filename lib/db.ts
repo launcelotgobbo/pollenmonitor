@@ -1,9 +1,10 @@
-import { Pool, type QueryResult, type QueryResultRow } from 'pg';
-// In local dev, relax TLS verification to handle self-signed cert chains from pooled endpoints
-if (process.env.NODE_ENV !== 'production') {
-  // eslint-disable-next-line no-process-env
-  (process.env as any).NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+import { Pool, defaults, type QueryResult, type QueryResultRow } from 'pg';
+// Relax TLS verification for Supabase pooled endpoints which can report self-signed chains
+try {
+  if (process.env.POSTGRES_URL && /supabase\.co|supabase\.com/.test(process.env.POSTGRES_URL)) {
+    defaults.ssl = { rejectUnauthorized: false } as any;
+  }
+} catch {}
 
 export type PollenReading = {
   city: string;
