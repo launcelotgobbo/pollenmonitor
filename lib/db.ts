@@ -15,8 +15,21 @@ export type PollenReading = {
   is_forecast?: boolean | null;
 };
 
-const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
-const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+let connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '';
+// Force no-verify on SSL in serverless to avoid chain issues
+try {
+  if (connectionString) {
+    if (/sslmode=/.test(connectionString)) {
+      connectionString = connectionString.replace(/sslmode=[^&]+/i, 'sslmode=no-verify');
+    } else {
+      connectionString += (connectionString.includes('?') ? '&' : '?') + 'sslmode=no-verify';
+    }
+  }
+  // As a last resort for some environments
+  (process.env as any).NODE_TLS_REJECT_UNAUTHORIZED = '0';
+} catch {}
+
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false, require: true } });
 
 async function q<T extends QueryResultRow = QueryResultRow>(
   text: string,
