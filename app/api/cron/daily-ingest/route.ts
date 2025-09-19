@@ -25,7 +25,11 @@ async function loadCities(): Promise<City[]> {
 }
 
 export async function GET(req: NextRequest) {
-  const cronHeader = req.headers.get('x-vercel-cron') || req.headers.get('x-vercel-schedule');
+  const cronHeader =
+    req.headers.get('x-vercel-cron') ||
+    req.headers.get('x-vercel-schedule') ||
+    req.headers.get('x-vercel-oidc-token') ||
+    req.headers.get('x-vercel-proxy-signature');
   const urlToken = new URL(req.url).searchParams.get('token');
   const headerToken = req.headers.get('x-ingest-token');
   const validToken = process.env.INGEST_TOKEN;
