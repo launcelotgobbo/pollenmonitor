@@ -97,7 +97,6 @@ export async function GET(req: NextRequest) {
   console.log('[cron daily-ingest] completed', {
     level: 'info',
     job: 'daily-ingest',
-    jobId,
     ts: new Date().toISOString(),
     ...result,
   });

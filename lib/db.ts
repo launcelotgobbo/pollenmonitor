@@ -19,7 +19,7 @@ try {
   }
 } catch {}
 
-const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false, require: true } });
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
 
 async function q<T extends QueryResultRow = QueryResultRow>(text: string, params?: any[]): Promise<QueryResult<T>> {
   return pool.query<T>(text, params);

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${SKIP_PRECOMMIT_BUILD:-}" ]; then
+  echo "SKIP_PRECOMMIT_BUILD set; skipping npm run build check."
+  exit 0
+fi
+
+echo "[pre-commit] Running npm run build to ensure project builds..."
+if ! npm run --silent build; then
+  echo "[pre-commit] npm run build failed. Commit aborted." >&2
+  exit 1
+fi
+
+echo "[pre-commit] Build succeeded. Proceeding with commit."

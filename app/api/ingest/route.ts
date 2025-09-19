@@ -95,7 +95,6 @@ export async function POST(req: NextRequest) {
   console.log('[ingest manual] completed', {
     level: 'info',
     job: 'manual-ingest',
-    jobId,
     ts: new Date().toISOString(),
     ...result,
   });

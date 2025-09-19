@@ -59,6 +59,7 @@
 - Cron (Vercel): daily function call to `/api/cron/daily-ingest` (already wired via `vercel.json`).
   - Auth: Vercel Cron includes `x-vercel-cron`. Manual triggers can use `/api/cron/daily-ingest?token=$INGEST_TOKEN`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration.
+- Local git hook: run `npm run setup:hooks` once to enforce `npm run build` on each commit (set `SKIP_PRECOMMIT_BUILD=1` to bypass when needed).
 
 ## Cron & Logging
 - Scheduling: use Vercel Cron to call `/api/cron/daily-ingest?days=5` (already configured) and optionally ad-hoc `/api/ingest` triggers for backfills.
