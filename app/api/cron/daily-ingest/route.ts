@@ -29,9 +29,26 @@ export async function GET(req: NextRequest) {
   const urlToken = new URL(req.url).searchParams.get('token');
   const headerToken = req.headers.get('x-ingest-token');
   const validToken = process.env.INGEST_TOKEN;
-  const authorized = Boolean(isCron || (validToken && (urlToken === validToken || headerToken === validToken)));
+  const envTokenPresent = Boolean(validToken && validToken.length > 0);
+  const urlTokenProvided = Boolean(urlToken && urlToken.length > 0);
+  const headerTokenProvided = Boolean(headerToken && headerToken.length > 0);
+  const tokenMatch = Boolean(validToken && (urlToken === validToken || headerToken === validToken));
+  const authorized = Boolean(isCron || tokenMatch);
+
   if (!authorized) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    console.warn('[cron daily-ingest] unauthorized request', {
+      ts: new Date().toISOString(),
+      isCron: Boolean(isCron),
+      envTokenPresent,
+      urlTokenProvided,
+      headerTokenProvided,
+      tokenMatch,
+      path: '/api/cron/daily-ingest',
+    });
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized', isCron: Boolean(isCron), tokenProvided: urlTokenProvided || headerTokenProvided }),
+      { status: 401 },
+    );
   }
 
   const start = Date.now();
