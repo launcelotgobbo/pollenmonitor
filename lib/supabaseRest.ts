@@ -1,10 +1,10 @@
 export function getSupabaseEnv() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   }
-  return { url, key };
+  return { url, key: serviceKey };
 }
 
 export async function supabaseGet<T = any>(path: string, search: string): Promise<T> {
@@ -25,4 +25,3 @@ export async function supabaseGet<T = any>(path: string, search: string): Promis
   }
   return (await res.json()) as T;
 }
-

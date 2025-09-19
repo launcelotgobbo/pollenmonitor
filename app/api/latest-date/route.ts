@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest) {
     return Response.json({ date: latest });
   } catch (e: any) {
     console.error('[latest-date] error:', e);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check SUPABASE_URL/ANON_KEY.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY.' }), { status: 500 });
   }
 }
 
