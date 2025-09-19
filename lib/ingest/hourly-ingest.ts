@@ -7,6 +7,7 @@ export type CityIngestResult = {
   hoursFetched: number;
   ok: boolean;
   error?: string;
+  stack?: string;
 };
 
 export type HourlyIngestSummary = {
@@ -18,6 +19,7 @@ export type HourlyIngestSummary = {
   failed: number;
   totalRecordsStored: number;
   ms: number;
+  ambeeCalls: number;
 };
 
 export async function ingestHourlyForCities({
@@ -38,9 +40,11 @@ export async function ingestHourlyForCities({
   let wrote = 0;
   let failed = 0;
   let totalRecordsStored = 0;
+  let ambeeCalls = 0;
 
   for (const city of cities) {
     try {
+      ambeeCalls += 1;
       const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO);
       if (!dryRun) {
         for (const h of hours) {
@@ -66,8 +70,10 @@ export async function ingestHourlyForCities({
       onCityComplete?.(result);
     } catch (e) {
       failed++;
-      const error = (e as Error)?.message || String(e);
-      const result: CityIngestResult = { city: city.slug, hoursFetched: 0, ok: false, error };
+      const err = e as Error;
+      const error = err?.message || String(e);
+      const stack = err?.stack;
+      const result: CityIngestResult = { city: city.slug, hoursFetched: 0, ok: false, error, stack };
       cityResults.push(result);
       onCityComplete?.(result);
     }
@@ -82,6 +88,7 @@ export async function ingestHourlyForCities({
     failed,
     totalRecordsStored,
     ms: Date.now() - start,
+    ambeeCalls,
   };
 
   return { summary, cityResults };

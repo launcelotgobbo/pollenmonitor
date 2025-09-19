@@ -5,6 +5,7 @@ import { loadTopCities } from '@/lib/ingest/cities';
 import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
 
 export async function GET(req: NextRequest) {
+  const ambeeQuota = Number(process.env.AMBEE_DAILY_QUOTA ?? '200');
   const cronHeader =
     req.headers.get('x-vercel-cron') ||
     req.headers.get('x-vercel-schedule') ||
@@ -62,7 +63,32 @@ export async function GET(req: NextRequest) {
     window: { from: fromISO, to: toISO },
     cityCount: cities.length,
     source: 'ambee-hourly',
+    ambeeQuota,
   });
+
+  if (cities.length === 0) {
+    const failure = {
+      ok: false,
+      from: fromISO,
+      to: toISO,
+      cities: 0,
+      wrote: 0,
+      failed: 0,
+      totalRecordsStored: 0,
+      ms: 0,
+      jobId,
+      error: 'No city definitions available. Check public/data/us-top-40-cities.geojson or related configuration.',
+    };
+    console.error('[cron daily-ingest] abort: no cities', {
+      level: 'error',
+      job: 'daily-ingest',
+      jobId,
+      ts: new Date().toISOString(),
+      error: failure.error,
+    });
+    await logIngest('failure', failure);
+    return new Response(JSON.stringify(failure), { status: 500 });
+  }
   const { summary, cityResults } = await ingestHourlyForCities({
     cities,
     fromISO,
@@ -83,25 +109,39 @@ export async function GET(req: NextRequest) {
           jobId,
           city: outcome.city,
           message: outcome.error,
+          stack: outcome.stack,
         });
       }
     },
   });
 
+  const status = summary.ok ? 'success' : summary.failed === cities.length ? 'failure' : 'partial';
   const result = {
     ...summary,
     totalDaysStored: summary.totalRecordsStored,
     jobId,
     cityResults,
+    status,
   };
   console.log('[cron daily-ingest] completed', {
     level: 'info',
     job: 'daily-ingest',
     ts: new Date().toISOString(),
     ...result,
+    status,
   });
-  await logIngest(result.ok ? 'success' : 'partial', result);
-  return Response.json(result);
+  if (result.ambeeCalls > ambeeQuota) {
+    console.warn('[cron daily-ingest] ambee call quota exceeded', {
+      level: 'warn',
+      job: 'daily-ingest',
+      jobId,
+      ambeeCalls: result.ambeeCalls,
+      quota: ambeeQuota,
+    });
+  }
+  await logIngest(status, result);
+  const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
+  return Response.json(result, { status: httpStatus });
 }
 
 export const dynamic = 'force-dynamic';

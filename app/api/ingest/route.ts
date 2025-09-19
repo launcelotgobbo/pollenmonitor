@@ -9,6 +9,7 @@ function toISODateTime(input: Date) {
 }
 
 export async function POST(req: NextRequest) {
+  const ambeeQuota = Number(process.env.AMBEE_DAILY_QUOTA ?? '200');
   const token = req.headers.get('x-ingest-token');
   if (!process.env.INGEST_TOKEN || token !== process.env.INGEST_TOKEN) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -43,9 +44,36 @@ export async function POST(req: NextRequest) {
   }
 
   const jobId = randomUUID();
-  const cities = (await loadTopCities()).filter((c) => (cityFilter ? c.slug === cityFilter : true));
+  const allCities = await loadTopCities();
+
+  if (!allCities.length) {
+    const failure = {
+      ok: false,
+      from: fromISO,
+      to: toISO,
+      cities: 0,
+      wrote: 0,
+      failed: 0,
+      totalRecordsStored: 0,
+      ms: 0,
+      jobId,
+      dryRun,
+      error: 'No city definitions available. Check public/data/us-top-40-cities.geojson or related configuration.',
+    };
+    console.error('[ingest manual] abort: loadTopCities returned 0', {
+      level: 'error',
+      job: 'manual-ingest',
+      jobId,
+      ts: new Date().toISOString(),
+      error: failure.error,
+    });
+    await logIngest('failure', failure);
+    return new Response(JSON.stringify(failure), { status: 500 });
+  }
+
+  const cities = allCities.filter((c) => (cityFilter ? c.slug === cityFilter : true));
   if (!cities.length) {
-    return new Response(JSON.stringify({ error: 'No cities matched request.' }), { status: 400 });
+    return new Response(JSON.stringify({ error: `No cities matched request for filter ${cityFilter}` }), { status: 400 });
   }
 
   console.log('[ingest manual] start', {
@@ -56,6 +84,7 @@ export async function POST(req: NextRequest) {
     cityCount: cities.length,
     window: { from: fromISO, to: toISO },
     dryRun,
+    ambeeQuota,
   });
 
   const { summary, cityResults } = await ingestHourlyForCities({
@@ -79,28 +108,42 @@ export async function POST(req: NextRequest) {
           jobId,
           city: outcome.city,
           message: outcome.error,
+          stack: outcome.stack,
         });
       }
     },
   });
 
+  const status = summary.ok ? 'success' : summary.failed === cities.length ? 'failure' : 'partial';
   const result = {
     jobId,
     dryRun,
     ...summary,
     totalDaysStored: summary.totalRecordsStored,
     cityResults,
+    status,
   };
-
   console.log('[ingest manual] completed', {
     level: 'info',
     job: 'manual-ingest',
     ts: new Date().toISOString(),
     ...result,
+    status,
   });
 
-  await logIngest(summary.ok ? 'success' : 'partial', result);
-  return Response.json(result);
+  if (result.ambeeCalls > ambeeQuota) {
+    console.warn('[ingest manual] ambee call quota exceeded', {
+      level: 'warn',
+      job: 'manual-ingest',
+      jobId,
+      ambeeCalls: result.ambeeCalls,
+      quota: ambeeQuota,
+    });
+  }
+
+  await logIngest(status, result);
+  const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
+  return Response.json(result, { status: httpStatus });
 }
 
 export const dynamic = 'force-dynamic';

@@ -37,6 +37,7 @@
 
 ## Data Sources & Ingestion
 - Source: Ambee API (`AMBEE_API_KEY`). Ensure the key is available in Vercel and local `.env` files.
+- Quota tracking: set `AMBEE_DAILY_QUOTA` (default 200) so ingest logs capture Ambee call counts and warn when exceeding the plan.
 - Ingestion job: fetch latest readings by city/date and upsert hourly Ambee measurements (`pollen_readings_hourly`).
 - Rate limits: implement retries with exponential backoff; respect provider quotas.
 - Mapping: use the geojson seed file to normalize city slugs; Ambee supplies pollen metrics.

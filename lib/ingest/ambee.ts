@@ -48,7 +48,10 @@ export async function ambeeHourlyRange(
   const enc = (s: string) => encodeURIComponent(s);
   const url = `${AMBEE_BASE}/history/pollen/by-lat-lng?lat=${lat}&lng=${lon}&from=${enc(fromISO)}&to=${enc(toISO)}`;
   const res = await fetch(url, { headers: headers(), cache: 'no-store' });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Ambee hourly range failed (${res.status}): ${body}`);
+  }
   const json = await res.json();
   const list = Array.isArray(json?.data) ? json.data : [];
   return list.map((hour: any) => {
