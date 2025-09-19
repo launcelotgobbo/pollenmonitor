@@ -7,37 +7,49 @@ export async function GET(req: NextRequest) {
   const city = searchParams.get('city');
 
   try {
-    if (date) {
+    if (city && date) {
+      // Return hourly rows for the UTC day window
+      const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
+      const nextDay = new Date(`${date}T00:00:00Z`);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      const dayEnd = nextDay.toISOString();
       const rows = await supabaseGet<Array<any>>(
-        'pollen_readings',
-        `select=city_slug,date,grass,tree,weed,total,source,is_forecast&date=eq.${date}`,
+        'pollen_readings_hourly',
+        `select=ts,grass,tree,weed,timezone:tz,species,risk_grass,risk_tree,risk_weed&city_slug=eq.${city}&ts=gte.${dayStart}&ts=lt.${dayEnd}&order=ts.asc`,
       );
-      // Reduce to one row per city (prefer Ambee)
+      const out = rows.map((r) => ({
+        ts: r.ts,
+        tree: r.tree ?? null,
+        grass: r.grass ?? null,
+        weed: r.weed ?? null,
+        total: (r.grass ?? 0) + (r.tree ?? 0) + (r.weed ?? 0),
+        species: r.species ?? null,
+        risk_tree: r.risk_tree ?? null,
+        risk_grass: r.risk_grass ?? null,
+        risk_weed: r.risk_weed ?? null,
+        timezone: r.timezone ?? null,
+      }));
+      return Response.json({ city, date, rows: out });
+    }
+    if (date && !city) {
+      // Return one summary per city for that day: max weed across hours
+      const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
+      const nextDay = new Date(`${date}T00:00:00Z`);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      const dayEnd = nextDay.toISOString();
+      const rows = await supabaseGet<Array<any>>(
+        'pollen_readings_hourly',
+        `select=city_slug,ts,grass,tree,weed&ts=gte.${dayStart}&ts=lt.${dayEnd}`,
+      );
       const byCity: Record<string, any[]> = {};
       for (const r of rows) (byCity[r.city_slug] ||= []).push(r);
-      const out = Object.entries(byCity).map(([city, arr]) => {
-        const pref = arr.find((r) => r.source === 'ambee') || arr[0];
-        const count = pref?.total ?? ((pref?.grass ?? 0) + (pref?.tree ?? 0) + (pref?.weed ?? 0));
-        return { city, date, count, source: pref?.source ?? null, is_forecast: !!pref?.is_forecast };
+      const out = Object.entries(byCity).map(([slug, arr]) => {
+        const maxWeed = arr.reduce((m, r) => Math.max(m, r.weed ?? 0), 0);
+        const latest = arr.sort((a, b) => a.ts.localeCompare(b.ts)).slice(-1)[0] || {};
+        const count = (latest.grass ?? 0) + (latest.tree ?? 0) + (latest.weed ?? 0);
+        return { city: slug, date, count, source: 'ambee', is_forecast: false, max_weed: maxWeed };
       });
       return Response.json({ date, rows: out });
-    }
-    if (city) {
-      const rows = await supabaseGet<Array<any>>(
-        'pollen_readings',
-        `select=city_slug,date,grass,tree,weed,total,source,is_forecast&city_slug=eq.${city}&order=date.desc&limit=365`,
-      );
-      // Reduce to one row per date (prefer Ambee)
-      const byDate: Record<string, any[]> = {};
-      for (const r of rows) (byDate[r.date] ||= []).push(r);
-      const out = Object.entries(byDate)
-        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-        .map(([d, arr]) => {
-          const pref = arr.find((r) => r.source === 'ambee') || arr[0];
-          const count = pref?.total ?? ((pref?.grass ?? 0) + (pref?.tree ?? 0) + (pref?.weed ?? 0));
-          return { city, date: d, count, source: pref?.source ?? null, is_forecast: !!pref?.is_forecast };
-        });
-      return Response.json({ city, rows: out });
     }
     return new Response(
       JSON.stringify({ error: 'Provide either ?date=YYYY-MM-DD or ?city=slug' }),

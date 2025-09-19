@@ -7,56 +7,119 @@ export async function GET(req: NextRequest) {
   if (!date) return new Response(JSON.stringify({ error: 'date required' }), { status: 400 });
 
   try {
-    const base = date;
-    const d0 = new Date(base);
-    const toISO = (d: Date) => d.toISOString().slice(0, 10);
-    const d1 = new Date(d0); d1.setDate(d1.getDate() + 1);
-    const d2 = new Date(d0); d2.setDate(d2.getDate() + 2);
-    const dates = [base, toISO(d1), toISO(d2)];
+    const base = new Date(`${date}T00:00:00Z`);
+    const dayStart = base.toISOString();
+    const windowEnd = new Date(base);
+    windowEnd.setUTCDate(windowEnd.getUTCDate() + 3);
+    const dayEnd = windowEnd.toISOString();
 
-    // Fetch readings for base + next two days
-    const readRows = await supabaseGet<Array<any>>(
-      'pollen_readings',
-      `select=city_slug,date,lat,lon,grass,tree,weed,total,source,is_forecast&date=in.(${dates.join(',')})&order=date.asc`,
+    // Fetch hourly rows for the base day plus the next two days
+    const hr = await supabaseGet<Array<any>>(
+      'pollen_readings_hourly',
+      `select=city_slug,ts,grass,tree,weed,risk_grass,risk_tree,risk_weed,tz&ts=gte.${dayStart}&ts=lt.${dayEnd}&order=ts.asc`,
     );
+
+    // Load city coordinates from public file
+    const origin = new URL(req.url).origin;
+    const citiesRes = await fetch(`${origin}/data/us-top-40-cities.geojson`, { cache: 'no-store' });
+    const cities = await citiesRes.json();
+    const coords: Record<string, [number, number]> = {};
+    for (const f of cities.features) {
+      coords[f.properties.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')] = f.geometry.coordinates;
+    }
 
     // Group by city
     const byCity: Record<string, any[]> = {};
-    for (const r of readRows) {
-      const k = r.city_slug;
-      (byCity[k] ||= []).push(r);
-    }
+    for (const r of hr) (byCity[r.city_slug] ||= []).push(r);
 
-    const prefer = (rows: any[]) => {
-      // prefer Ambee actuals, else first
-      const ambee = rows.find((r) => r.source === 'ambee');
-      return ambee || rows[0];
+    const normalizeRisk = (value: string | null | undefined) => {
+      if (!value) return null;
+      return value.toString().trim().toLowerCase().replace(/\s+/g, '-').replace(/_+/g, '-');
+    };
+
+    const riskPriority: Record<string, number> = {
+      'very-high': 5,
+      extreme: 5,
+      severe: 4,
+      high: 3,
+      moderate: 2,
+      medium: 2,
+      low: 1,
+      'very-low': 0,
+      minimal: 0,
+    };
+
+    const pickRisk = (current: string | null, next: string | null) => {
+      const normCurrent = normalizeRisk(current);
+      const normNext = normalizeRisk(next);
+      const scoreCurrent = normCurrent && riskPriority[normCurrent] !== undefined ? riskPriority[normCurrent] : -1;
+      const scoreNext = normNext && riskPriority[normNext] !== undefined ? riskPriority[normNext] : -1;
+      if (scoreNext > scoreCurrent) return next ?? null;
+      return current ?? (next ?? null);
+    };
+
+    const bumpMax = (current: number | null, value: number | null | undefined) => {
+      if (value === null || value === undefined) return current ?? null;
+      if (current === null || current === undefined) return value;
+      return Math.max(current, value);
     };
 
     const features = Object.entries(byCity).map(([city, rows]) => {
-      const forDate = (iso: string) => rows.filter((r) => r.date === iso);
-      const baseRow = prefer(forDate(base));
-      const p0 = prefer(forDate(base));
-      const p1 = prefer(forDate(dates[1]));
-      const p2 = prefer(forDate(dates[2]));
-      const series = [p0, p1, p2]
-        .filter(Boolean)
-        .map((r) => ({ date: r.date, tree: r.tree ?? null, grass: r.grass ?? null, weed: r.weed ?? null, is_forecast: !!r.is_forecast }));
+      const perDay = new Map<string, any>();
+      for (const r of rows) {
+        const day = (r.ts || '').slice(0, 10);
+        if (!day) continue;
+        const existing = perDay.get(day) || {
+          date: day,
+          tree: null,
+          grass: null,
+          weed: null,
+          risk_tree: null,
+          risk_grass: null,
+          risk_weed: null,
+          timezone: r.tz ?? null,
+        };
+        existing.tree = bumpMax(existing.tree, r.tree ?? null);
+        existing.grass = bumpMax(existing.grass, r.grass ?? null);
+        existing.weed = bumpMax(existing.weed, r.weed ?? null);
+        existing.risk_tree = pickRisk(existing.risk_tree, r.risk_tree ?? null);
+        existing.risk_grass = pickRisk(existing.risk_grass, r.risk_grass ?? null);
+        existing.risk_weed = pickRisk(existing.risk_weed, r.risk_weed ?? null);
+        existing.timezone = existing.timezone || r.tz || null;
+        perDay.set(day, existing);
+      }
 
+      const series = Array.from(perDay.values()).sort((a, b) => a.date.localeCompare(b.date));
+      const baseDay = series.find((s) => s.date === date) || series[0] || {
+        date,
+        tree: null,
+        grass: null,
+        weed: null,
+        risk_tree: null,
+        risk_grass: null,
+        risk_weed: null,
+        timezone: rows.find((r) => r.tz)?.tz ?? null,
+      };
+      if (!series.length) series.push(baseDay);
+      const maxWeed = baseDay.weed ?? 0;
+      const timezone = baseDay.timezone ?? series.find((s) => s.timezone)?.timezone ?? null;
+      const lonlat = coords[city] || [0, 0];
       return {
         type: 'Feature',
         properties: {
           city,
-          count: baseRow?.total ?? ((baseRow?.grass ?? 0) + (baseRow?.tree ?? 0) + (baseRow?.weed ?? 0)),
-          is_forecast: !!baseRow?.is_forecast,
-          source: baseRow?.source ?? null,
-          tree: baseRow?.tree ?? null,
-          grass: baseRow?.grass ?? null,
-          weed: baseRow?.weed ?? null,
-          top_plants: null,
+          count: (baseDay.grass ?? 0) + (baseDay.tree ?? 0) + (baseDay.weed ?? 0),
+          tree: baseDay.tree ?? null,
+          grass: baseDay.grass ?? null,
+          weed: baseDay.weed ?? null,
+          max_weed: maxWeed,
+          risk_tree: baseDay.risk_tree ?? null,
+          risk_grass: baseDay.risk_grass ?? null,
+          risk_weed: baseDay.risk_weed ?? null,
+          timezone,
           series,
         },
-        geometry: { type: 'Point', coordinates: [baseRow?.lon ?? 0, baseRow?.lat ?? 0] },
+        geometry: { type: 'Point', coordinates: lonlat },
       };
     });
 

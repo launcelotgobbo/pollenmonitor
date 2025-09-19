@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { googleLookup } from '@/lib/ingest/google';
-import { upsertPollenPlants, upsertPollenReading, logIngest } from '@/lib/db';
+import { ambeeHourlyRange } from '@/lib/ingest/ambee';
+import { upsertPollenHourly, logIngest } from '@/lib/db';
 
 type City = { name: string; slug: string; lat: number; lon: number };
 
@@ -61,8 +61,11 @@ export async function GET(req: NextRequest) {
   }
 
   const start = Date.now();
-  const date = new Date().toISOString().slice(0, 10);
-  const daysParam = 5;
+  const now = new Date();
+  const toISO = now.toISOString().slice(0, 19).replace('T', ' ');
+  const fromDate = new Date(now);
+  fromDate.setHours(fromDate.getHours() - 42);
+  const fromISO = fromDate.toISOString().slice(0, 19).replace('T', ' ');
   const cities = await loadCities();
   let wrote = 0;
   let failed = 0;
@@ -70,34 +73,21 @@ export async function GET(req: NextRequest) {
 
   for (const city of cities) {
     try {
-      const days = await googleLookup(city.lat, city.lon, date);
-      const slice = days.slice(0, daysParam);
-      for (const d of slice) {
-        const total = [d.grassIndex, d.treeIndex, d.weedIndex]
-          .filter((v) => typeof v === 'number')
-          .reduce((a, b) => a + (b as number), 0);
-        await upsertPollenReading({
+      const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO);
+      for (const h of hours) {
+        await upsertPollenHourly({
           city_slug: city.slug,
-          city_name: city.name,
-          lat: city.lat,
-          lon: city.lon,
-          date: d.date,
-          source: 'google',
-          grass: (d.grassIndex ?? null) as any,
-          tree: (d.treeIndex ?? null) as any,
-          weed: (d.weedIndex ?? null) as any,
-          total: total || null,
-          is_forecast: true,
+          ts: h.ts,
+          tz: h.tz ?? null,
+          grass: h.grass ?? null,
+          tree: h.tree ?? null,
+          weed: h.weed ?? null,
+          total: (h.grass ?? 0) + (h.tree ?? 0) + (h.weed ?? 0),
+          risk_grass: h.risk_grass ?? null,
+          risk_tree: h.risk_tree ?? null,
+          risk_weed: h.risk_weed ?? null,
+          species: h.species ?? null,
         });
-        const plants = (d.plants || []).filter((p) => p.index != null);
-        if (plants.length) {
-          await upsertPollenPlants(
-            { slug: city.slug, name: city.name, lat: city.lat, lon: city.lon },
-            d.date,
-            plants,
-            true,
-          );
-        }
         totalDaysStored++;
       }
       wrote++;
@@ -109,8 +99,8 @@ export async function GET(req: NextRequest) {
 
   const result = {
     ok: failed === 0,
-    date,
-    days: daysParam,
+    from: fromISO,
+    to: toISO,
     cities: cities.length,
     wrote,
     failed,

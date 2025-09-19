@@ -192,6 +192,50 @@ export async function logIngest(status: string, details: Record<string, any>) {
   } catch {}
 }
 
+export async function upsertPollenHourly(row: {
+  city_slug: string;
+  ts: string; // ISO timestamp
+  tz?: string | null;
+  grass?: number | null;
+  tree?: number | null;
+  weed?: number | null;
+  total?: number | null;
+  risk_grass?: string | null;
+  risk_tree?: string | null;
+  risk_weed?: string | null;
+  species?: any;
+}) {
+  const total = row.total ?? ((row.grass ?? 0) + (row.tree ?? 0) + (row.weed ?? 0));
+  await q(
+    `INSERT INTO pollen_readings_hourly (
+        city_slug, ts, tz, grass, tree, weed, total, risk_grass, risk_tree, risk_weed, species, source
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'ambee')
+     ON CONFLICT (city_slug, ts, source)
+     DO UPDATE SET tz = COALESCE(EXCLUDED.tz, pollen_readings_hourly.tz),
+                   grass = EXCLUDED.grass,
+                   tree = EXCLUDED.tree,
+                   weed = EXCLUDED.weed,
+                   total = EXCLUDED.total,
+                   risk_grass = EXCLUDED.risk_grass,
+                   risk_tree = EXCLUDED.risk_tree,
+                   risk_weed = EXCLUDED.risk_weed,
+                   species = EXCLUDED.species`,
+    [
+      row.city_slug,
+      row.ts,
+      row.tz ?? null,
+      row.grass ?? null,
+      row.tree ?? null,
+      row.weed ?? null,
+      total,
+      row.risk_grass ?? null,
+      row.risk_tree ?? null,
+      row.risk_weed ?? null,
+      row.species ?? null,
+    ],
+  );
+}
+
 export async function getPollenByDate(date: string): Promise<PollenReading[]> {
   try {
     const { rows } = await q<PollenReading>(

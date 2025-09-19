@@ -3,16 +3,16 @@ import { supabaseGet } from '@/lib/supabaseRest';
 
 export async function GET(_req: NextRequest) {
   try {
-    const rows = await supabaseGet<Array<{ date: string }>>(
-      'pollen_readings',
-      'select=date&order=date.desc&limit=365',
+    // Collect distinct dates from hourly readings (last N rows)
+    const rows = await supabaseGet<Array<{ ts: string }>>(
+      'pollen_readings_hourly',
+      'select=ts&order=ts.desc&limit=5000',
     );
     const seen = new Set<string>();
     const today = new Date().toISOString().slice(0, 10);
     const dates = rows
-      .map((r) => r.date)
-      .filter((d) => typeof d === 'string')
-      .filter((d) => d <= today)
+      .map((r) => (r.ts || '').slice(0, 10))
+      .filter((d) => d && d <= today)
       .filter((d) => (seen.has(d) ? false : (seen.add(d), true)));
     return Response.json({ dates });
   } catch (e: any) {
