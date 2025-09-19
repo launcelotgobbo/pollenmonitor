@@ -27,7 +27,7 @@ export default function MapView() {
         const preferred = ds.find((d) => d === latest?.date) || ds[0] || '';
         setDate(preferred);
       } catch (e: any) {
-        setError(e?.message || 'Failed to load latest date');
+        setError(e?.message || 'Failed to load the latest date');
       } finally {
         setLoading(false);
       }
@@ -36,41 +36,33 @@ export default function MapView() {
   }, []);
 
   return (
-    <div style={{ position: 'relative', height: '100vh', width: '100vw' }}>
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-slate-950">
       <MapCanvas date={date} />
-      <div
-        style={{
-          position: 'absolute',
-          top: 12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(255,255,255,0.95)',
-          border: '1px solid #e0e0e0',
-          borderRadius: 8,
-          padding: '8px 12px',
-          display: 'flex',
-          gap: 12,
-          alignItems: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}
-      >
-        <label style={{ fontSize: 14, color: '#424242' }}>
-          Date:{' '}
-          <select
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            style={{ padding: '4px 6px' }}
-          >
-            {dates.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span style={{ fontSize: 12, color: '#616161' }}>
-          Hover a city for count • Click to open details
-        </span>
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 py-4 sm:px-6">
+        <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-3 rounded-2xl bg-slate-900/75 px-4 py-3 text-slate-50 shadow-xl backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex flex-col gap-2 text-xs font-medium uppercase tracking-wide text-slate-200 sm:flex-row sm:items-center sm:gap-3 sm:text-sm">
+            <span className="text-slate-300">Date</span>
+            <select
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={!dates.length}
+              className="min-w-[160px] rounded-xl border-none bg-slate-800/80 px-3 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-slate-800/40"
+            >
+              {dates.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-1 text-xs text-slate-200 sm:text-sm">
+            <span>Hover a city for counts • Tap to open details</span>
+            {loading && <span className="text-[11px] uppercase tracking-wide text-slate-300">Loading map data…</span>}
+            {error && <span className="text-[11px] uppercase tracking-wide text-rose-200">{error}</span>}
+          </div>
+        </div>
       </div>
     </div>
   );

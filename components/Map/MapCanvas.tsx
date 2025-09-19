@@ -439,7 +439,7 @@ export default function MapCanvas({ date }: { date: string }) {
   return (
     <div
       ref={ref}
-      style={{ height: '100vh', width: '100%', overflow: 'hidden' }}
+      style={{ height: '100%', width: '100%', overflow: 'hidden' }}
     />
   );
 }

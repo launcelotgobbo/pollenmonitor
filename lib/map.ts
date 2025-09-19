@@ -21,8 +21,8 @@ export function getStyleUrl(): string {
   const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
   if (envUrl) return envUrl;
   if (mapTilerKey) {
-    return `https://api.maptiler.com/maps/streets/style.json?key=${mapTilerKey}`;
+    return '/api/map-style';
   }
-  // Local raster OSM style fallback (dev only)
+  // Local raster/vector fallback (dev only)
   return '/map-style.json';
 }

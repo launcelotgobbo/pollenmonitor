@@ -1,22 +1,18 @@
 import type { Metadata } from 'next';
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Analytics } from '@vercel/analytics/next';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Pollen Monitor',
   description: 'Check pollen counts by date or city history',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0, padding: 24 }}>
-        <header style={{ marginBottom: 24 }}>
-          <a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <h1 style={{ margin: 0 }}>Pollen Monitor</h1>
-          </a>
-        </header>
-        <main>{children}</main>
+      <body className="min-h-screen bg-slate-50">
+        {children}
         <Analytics />
       </body>
     </html>
