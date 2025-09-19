@@ -13,17 +13,17 @@ const root = path.resolve(__dirname, '..');
 // Load env from .env.local if present; fallback to .env
 dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config();
-// Relax TLS verification in local dev to avoid self-signed chain issues with some pools
-if (process.env.NODE_ENV !== 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
-
 async function main() {
-  const conn = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
+  let conn = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
   if (!conn) {
     throw new Error('Set POSTGRES_URL (or POSTGRES_URL_NON_POOLING)');
   }
-  const pool = new Pool({ connectionString: conn, ssl: { require: true, rejectUnauthorized: false } });
+  if (/sslmode=/i.test(conn)) {
+    conn = conn.replace(/sslmode=[^&]+/i, 'sslmode=no-verify');
+  } else {
+    conn += (conn.includes('?') ? '&' : '?') + 'sslmode=no-verify';
+  }
+  const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false } });
   const migDir = path.join(root, 'migrations');
   const files = (await fs.readdir(migDir))
     .filter((f) => f.endsWith('.sql'))

@@ -1,37 +1,20 @@
--- Schema initialization for pollenmonitor
+-- Base schema for pollenmonitor (hourly Ambee data only)
 
-CREATE TABLE IF NOT EXISTS pollen_readings (
+CREATE TABLE IF NOT EXISTS pollen_readings_hourly (
   city_slug text NOT NULL,
-  city_name text,
-  lat double precision,
-  lon double precision,
-  date date NOT NULL,
-  source text NOT NULL,
+  ts timestamptz NOT NULL,
+  tz text,
   grass integer,
   tree integer,
   weed integer,
   total integer,
+  risk_grass text,
+  risk_tree text,
+  risk_weed text,
+  species jsonb,
+  source text NOT NULL DEFAULT 'ambee',
   created_at timestamptz DEFAULT now(),
-  PRIMARY KEY (city_slug, date, source)
-);
-
-CREATE TABLE IF NOT EXISTS pollen_plants (
-  city_slug text NOT NULL,
-  city_name text,
-  lat double precision,
-  lon double precision,
-  date date NOT NULL,
-  plant_code text,
-  plant_name text,
-  plant_type text,
-  in_season boolean,
-  pollen_index integer,
-  pollen_category text,
-  family text,
-  season text,
-  data_source text DEFAULT 'google',
-  created_at timestamptz DEFAULT now(),
-  PRIMARY KEY (city_slug, date, plant_code, data_source)
+  PRIMARY KEY (city_slug, ts, source)
 );
 
 CREATE TABLE IF NOT EXISTS ingest_logs (
@@ -42,8 +25,5 @@ CREATE TABLE IF NOT EXISTS ingest_logs (
   details jsonb
 );
 
--- Helpful indexes
-CREATE INDEX IF NOT EXISTS idx_pollen_readings_date ON pollen_readings(date);
-CREATE INDEX IF NOT EXISTS idx_pollen_readings_city ON pollen_readings(city_slug);
-CREATE INDEX IF NOT EXISTS idx_pollen_plants_city_date ON pollen_plants(city_slug, date);
-
+CREATE INDEX IF NOT EXISTS idx_hourly_city_ts ON pollen_readings_hourly(city_slug, ts);
+CREATE INDEX IF NOT EXISTS idx_hourly_ts ON pollen_readings_hourly(ts);

@@ -36,10 +36,10 @@
 - Caching: revalidate historical queries (e.g., export const revalidate = 3600) and bypass cache for today.
 
 ## Data Sources & Ingestion
-- Sources: Google APIs and Ambee APIs. Store keys as `GOOGLE_API_KEY` and `AMBEE_API_KEY` in Vercel (and add to `.env.example`).
-- Ingestion job: fetch latest readings by city/date and upsert into `pollen(city, date, count)`.
+- Source: Ambee API (`AMBEE_API_KEY`). Ensure the key is available in Vercel and local `.env` files.
+- Ingestion job: fetch latest readings by city/date and upsert hourly Ambee measurements (`pollen_readings_hourly`).
 - Rate limits: implement retries with exponential backoff; respect provider quotas.
-- Mapping: use Google (e.g., geocoding or other endpoints) to normalize city slugs; use Ambee for pollen metrics.
+- Mapping: use the geojson seed file to normalize city slugs; Ambee supplies pollen metrics.
 
 ## Commit & Pull Request Guidelines
 - Conventional Commits: feat:, fix:, chore:, docs:, refactor:, test:.
@@ -53,19 +53,15 @@
  
 ## Operations
 - Migrations: run `npm run db:migrate` locally or execute `migrations/001_init.sql` in your DB once.
-- Ingest Google (all cities):
-  - Local: `curl -X POST \
-    -H "x-ingest-token: $INGEST_TOKEN" \
-    "http://localhost:3000/api/ingest-google"`
-  - Single city: append `?city=new-york-city`.
-  - Dry run: add `&dry=true` to skip DB writes.
-- Cron (Vercel): schedule daily POST to `/api/ingest-google` with header `x-ingest-token: $INGEST_TOKEN`.
-  - Alternatively, use built-in cron via `vercel.json` (already added): daily at 08:00 UTC hitting `/api/cron/daily-ingest`.
-  - Auth: Vercel Cron includes `x-vercel-cron` header which the endpoint accepts. For manual runs use `/api/cron/daily-ingest?token=$INGEST_TOKEN`.
+- Manual ingest (hourly Ambee):
+  - Local: `curl -X POST -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest"`
+  - Options: `?city=slug` to target one city, `?hours=48` to adjust window, `?dry=true` for a dry run.
+- Cron (Vercel): daily function call to `/api/cron/daily-ingest` (already wired via `vercel.json`).
+  - Auth: Vercel Cron includes `x-vercel-cron`. Manual triggers can use `/api/cron/daily-ingest?token=$INGEST_TOKEN`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration.
 
 ## Cron & Logging
-- Scheduling: use Vercel Cron to call `/api/ingest-google?days=5` daily (and optionally hourly for “today”).
+- Scheduling: use Vercel Cron to call `/api/cron/daily-ingest?days=5` (already configured) and optionally ad-hoc `/api/ingest` triggers for backfills.
 - Required logs: record both success and failure for each run.
   - Structured console logs (visible in Vercel Function Logs), e.g., `{ level: 'info'|'error', job: 'ingest', status, count, ts }`.
   - Persistence: `ingest_logs` captures status + summary JSON.
