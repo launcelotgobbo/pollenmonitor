@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - app/: Next.js App Router pages, routes, and layouts.
-- components/: shared UI (PascalCase directories, e.g., components/DatePicker/).
+- components/: shared UI (e.g., components/CityPicker/).
 - lib/: client/server utilities (e.g., lib/db.ts for Vercel DB client).
 - public/: static assets.
 - tests/: unit and e2e tests (mirrors app/components structure).

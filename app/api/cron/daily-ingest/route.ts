@@ -26,8 +26,11 @@ async function loadCities(): Promise<City[]> {
 
 export async function GET(req: NextRequest) {
   const isCron = req.headers.get('x-vercel-cron');
-  const token = new URL(req.url).searchParams.get('token');
-  if (!isCron && (!process.env.INGEST_TOKEN || token !== process.env.INGEST_TOKEN)) {
+  const urlToken = new URL(req.url).searchParams.get('token');
+  const headerToken = req.headers.get('x-ingest-token');
+  const validToken = process.env.INGEST_TOKEN;
+  const authorized = Boolean(isCron || (validToken && (urlToken === validToken || headerToken === validToken)));
+  if (!authorized) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
@@ -94,4 +97,3 @@ export async function GET(req: NextRequest) {
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-

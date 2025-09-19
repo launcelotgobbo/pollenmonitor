@@ -1,6 +1,6 @@
 {
   "crons": [
     { "path": "/api/cron/daily-ingest", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/daily-ingest", "schedule": "45 22 * * *" }
+    { "path": "/api/cron/daily-ingest", "schedule": "39 01 * * *" }
   ]
 }

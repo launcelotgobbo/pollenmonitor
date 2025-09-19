@@ -38,49 +38,7 @@ export default function MapCanvas({ date }: { date: string }) {
         cluster: false,
       } as any);
 
-      map.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: id,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#90caf9',
-            10,
-            '#64b5f6',
-            50,
-            '#42a5f5',
-            100,
-            '#1e88e5',
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            16,
-            10,
-            20,
-            50,
-            24,
-            100,
-            28,
-          ],
-        },
-      } as any);
-
-      map.addLayer({
-        id: 'cluster-count',
-        type: 'symbol',
-        source: id,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-          'text-size': 12,
-        },
-        paint: { 'text-color': '#0d47a1' },
-      } as any);
+      // Unclustered city points colored by forecast/actual
 
       map.addLayer({
         id: 'unclustered-point',
@@ -127,25 +85,7 @@ export default function MapCanvas({ date }: { date: string }) {
         if (slug) window.location.href = `/city/${encodeURIComponent(slug)}`;
       });
 
-      // Zoom into clusters on click
-      map.on('click', 'clusters', (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-        const feature = features[0] as any;
-        const clusterId = feature?.properties?.cluster_id;
-        const source = map.getSource(id) as any;
-        if (!clusterId || !source) return;
-        source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-          if (err) return;
-          map.easeTo({ center: feature.geometry.coordinates, zoom });
-        });
-      });
-
-      map.on('mouseenter', 'clusters', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', 'clusters', () => {
-        map.getCanvas().style.cursor = '';
-      });
+      // No clustering used; keep interactions to unclustered points only
     };
 
     map.on('load', () => {
@@ -228,11 +168,6 @@ export default function MapCanvas({ date }: { date: string }) {
             if (!feature) return;
             const coords = feature.geometry.coordinates.slice();
             const name = feature.properties?.city || 'City';
-            const count = feature.properties?.count;
-            const isForecast = !!feature.properties?.is_forecast;
-            const tree = feature.properties?.tree;
-            const grass = feature.properties?.grass;
-            const weed = feature.properties?.weed;
             const series = feature.properties?.series as Array<any> | null | undefined;
             const rows = Array.isArray(series) && series.length
               ? series
