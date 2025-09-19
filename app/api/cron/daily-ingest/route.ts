@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { logIngest } from '@/lib/db';
+import { logAmbeeUsage, logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
 
@@ -141,6 +141,13 @@ export async function GET(req: NextRequest) {
   }
   await logIngest(status, result);
   const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
+  if (result.ambeeCalls > 0) {
+    await logAmbeeUsage('daily-ingest', jobId, result.ambeeCalls, {
+      window: { from: fromISO, to: toISO },
+      cities: cities.map((c) => c.slug),
+      status,
+    });
+  }
   return Response.json(result, { status: httpStatus });
 }
 
