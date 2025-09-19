@@ -25,7 +25,7 @@ async function loadCities(): Promise<City[]> {
 }
 
 export async function GET(req: NextRequest) {
-  const isCron = req.headers.get('x-vercel-cron');
+  const cronHeader = req.headers.get('x-vercel-cron') || req.headers.get('x-vercel-schedule');
   const urlToken = new URL(req.url).searchParams.get('token');
   const headerToken = req.headers.get('x-ingest-token');
   const validToken = process.env.INGEST_TOKEN;
@@ -33,20 +33,25 @@ export async function GET(req: NextRequest) {
   const urlTokenProvided = Boolean(urlToken && urlToken.length > 0);
   const headerTokenProvided = Boolean(headerToken && headerToken.length > 0);
   const tokenMatch = Boolean(validToken && (urlToken === validToken || headerToken === validToken));
-  const authorized = Boolean(isCron || tokenMatch);
+  const authorized = Boolean(cronHeader || tokenMatch);
 
   if (!authorized) {
+    const vercelHeaders: Record<string, string> = {};
+    for (const [k, v] of req.headers.entries()) {
+      if (k.startsWith('x-vercel')) vercelHeaders[k] = v;
+    }
     console.warn('[cron daily-ingest] unauthorized request', {
       ts: new Date().toISOString(),
-      isCron: Boolean(isCron),
+      isCron: Boolean(cronHeader),
       envTokenPresent,
       urlTokenProvided,
       headerTokenProvided,
       tokenMatch,
       path: '/api/cron/daily-ingest',
+      vercelHeaders,
     });
     return new Response(
-      JSON.stringify({ error: 'Unauthorized', isCron: Boolean(isCron), tokenProvided: urlTokenProvided || headerTokenProvided }),
+      JSON.stringify({ error: 'Unauthorized', isCron: Boolean(cronHeader), tokenProvided: urlTokenProvided || headerTokenProvided }),
       { status: 401 },
     );
   }
