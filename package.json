@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node scripts/migrate.mjs",
-    "test": "echo 'No tests yet' && exit 0",
+    "test": "tsx --test tests/**/*.test.ts",
     "setup:hooks": "git config core.hooksPath .githooks"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "postcss": "^8.4.31",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.10",
+    "tsx": "^4.15.7",
     "typescript": "^5.4.5"
   }
 }

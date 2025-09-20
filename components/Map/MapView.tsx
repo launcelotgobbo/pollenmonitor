@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import MapCanvas from '@/components/Map/MapCanvas';
 
@@ -58,7 +59,18 @@ export default function MapView() {
           </label>
 
           <div className="flex flex-col gap-1 text-xs text-slate-200 sm:text-sm">
-            <span>Hover a city for counts • Tap to open details</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Hover city for current data</span>
+              <span>•</span>
+              <span>Tap to open details</span>
+              <span>•</span>
+              <Link
+                href="/docs/api"
+                className="underline decoration-slate-400 underline-offset-2 transition hover:text-white"
+              >
+                API / MCP docs
+              </Link>
+            </div>
             {loading && <span className="text-[11px] uppercase tracking-wide text-slate-300">Loading map data…</span>}
             {error && <span className="text-[11px] uppercase tracking-wide text-rose-200">{error}</span>}
           </div>
