@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       params.set('select', 'ts,tree,grass,weed,tz');
       params.set('city_slug', `eq.${city}`);
       params.set('order', 'ts.desc');
-      params.set('limit', '1000');
+      params.set('limit', '20000');
 
       const rows = await supabaseGet<Array<any>>('pollen_readings_hourly', params.toString());
       const aggregates = new Map<
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
             ? null
             : (tree ?? 0) + (grass ?? 0) + (weed ?? 0);
 
-        const existing = aggregates.get(dateKey) ?? {
+        const aggregate = aggregates.get(dateKey) ?? {
           treeSum: 0,
           treeCount: 0,
           grassSum: 0,
@@ -80,42 +80,42 @@ export async function GET(req: NextRequest) {
         };
 
         if (tree !== null) {
-          existing.treeSum += tree;
-          existing.treeCount += 1;
+          aggregate.treeSum += tree;
+          aggregate.treeCount += 1;
         }
         if (grass !== null) {
-          existing.grassSum += grass;
-          existing.grassCount += 1;
+          aggregate.grassSum += grass;
+          aggregate.grassCount += 1;
         }
         if (weed !== null) {
-          existing.weedSum += weed;
-          existing.weedCount += 1;
+          aggregate.weedSum += weed;
+          aggregate.weedCount += 1;
         }
         if (total !== null) {
-          existing.totalSum += total;
-          existing.totalCount += 1;
-        }
-        if (!existing.timezone) {
-          const tz = typeof row.tz === 'string' && row.tz.trim() ? row.tz.trim() : null;
-          if (tz) existing.timezone = tz;
+          aggregate.totalSum += total;
+          aggregate.totalCount += 1;
         }
 
-        aggregates.set(dateKey, existing);
+        if (!aggregate.timezone) {
+          const tz = typeof row.tz === 'string' && row.tz.trim() ? row.tz.trim() : null;
+          if (tz) aggregate.timezone = tz;
+        }
+
+        aggregates.set(dateKey, aggregate);
       }
 
+      const avg = (sum: number, count: number) => (count > 0 ? Math.round(sum / count) : null);
       const out = Array.from(aggregates.entries())
-        .map(([dateKey, aggregate]) => {
-          const avg = (sum: number, count: number) => (count > 0 ? Math.round(sum / count) : null);
-          return {
-            date: dateKey,
-            avg_tree: avg(aggregate.treeSum, aggregate.treeCount),
-            avg_grass: avg(aggregate.grassSum, aggregate.grassCount),
-            avg_weed: avg(aggregate.weedSum, aggregate.weedCount),
-            avg_total: avg(aggregate.totalSum, aggregate.totalCount),
-            timezone: aggregate.timezone,
-          };
-        })
-        .sort((a, b) => b.date.localeCompare(a.date));
+        .map(([dateKey, aggregate]) => ({
+          date: dateKey,
+          avg_tree: avg(aggregate.treeSum, aggregate.treeCount),
+          avg_grass: avg(aggregate.grassSum, aggregate.grassCount),
+          avg_weed: avg(aggregate.weedSum, aggregate.weedCount),
+          avg_total: avg(aggregate.totalSum, aggregate.totalCount),
+          timezone: aggregate.timezone,
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 720);
 
       return Response.json({ city, rows: out });
     }

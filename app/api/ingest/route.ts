@@ -4,6 +4,8 @@ import { logAmbeeUsage, logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
 
+const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
+
 function toISODateTime(input: Date) {
   return input.toISOString().slice(0, 19).replace('T', ' ');
 }
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
       ms: 0,
       jobId,
       dryRun,
-      error: 'No city definitions available. Check public/data/us-top-40-cities.geojson or related configuration.',
+      error: `No city definitions available. Check public/data/${CITY_GEOJSON_FILENAME} or related configuration.`,
     };
     console.error('[ingest manual] abort: loadTopCities returned 0', {
       level: 'error',

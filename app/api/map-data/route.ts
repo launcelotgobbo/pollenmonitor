@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { supabaseGet } from '@/lib/supabaseRest';
 
+const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const date = searchParams.get('date');
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     // Load city coordinates from public file
     const origin = new URL(req.url).origin;
-    const citiesRes = await fetch(`${origin}/data/us-top-40-cities.geojson`, { cache: 'no-store' });
+    const citiesRes = await fetch(`${origin}/data/${CITY_GEOJSON_FILENAME}`, { cache: 'no-store' });
     const cities = await citiesRes.json();
     const coords: Record<string, [number, number]> = {};
     for (const f of cities.features) {

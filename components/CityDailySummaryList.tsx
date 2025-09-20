@@ -1,4 +1,6 @@
-import Link from 'next/link';
+'use client';
+
+import { useMemo } from 'react';
 
 type DailySummary = {
   date: string;
@@ -10,9 +12,9 @@ type DailySummary = {
 };
 
 type Props = {
-  city: string;
   days: DailySummary[];
-  selected?: string;
+  selected?: string | null;
+  onSelect?: (date: string) => void;
 };
 
 const longFormatter = new Intl.DateTimeFormat('en-US', {
@@ -48,29 +50,27 @@ function formatValue(value: number | null | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
 }
 
-export default function CityDailySummaryList({ city, days, selected }: Props) {
-  if (!days.length) {
+export default function CityDailySummaryList({ days, selected, onSelect }: Props) {
+  const items = useMemo(() => days ?? [], [days]);
+
+  if (!items.length) {
     return <p className="text-sm text-slate-500">No daily data captured yet for this city.</p>;
   }
 
-  const basePath = `/city/${encodeURIComponent(city)}`;
-
   return (
-    <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
-      {days.map((day) => {
-        const href = `${basePath}?date=${encodeURIComponent(day.date)}`;
+    <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+      {items.map((day) => {
         const isSelected = selected === day.date;
         return (
-          <Link
+          <button
             key={day.date}
-            href={href}
-            className={`block rounded-xl border px-4 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
+            type="button"
+            onClick={() => onSelect?.(day.date)}
+            className={`flex w-full flex-col rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
               isSelected
                 ? 'border-sky-500 bg-sky-50 shadow-sm'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
             }`}
-            aria-current={isSelected ? 'true' : undefined}
-            prefetch={false}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -79,7 +79,7 @@ export default function CityDailySummaryList({ city, days, selected }: Props) {
                 </p>
                 <p className="text-[11px] text-slate-500">Avg total {formatValue(day.avg_total)} particles/m³</p>
               </div>
-              <span className="text-xs font-semibold text-slate-400">{isSelected ? 'Selected' : 'View'}</span>
+              <span className="text-xs font-semibold text-slate-400">{isSelected ? 'Viewing' : 'Select'}</span>
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500 sm:grid-cols-4">
               <div className="space-y-1">
@@ -105,7 +105,7 @@ export default function CityDailySummaryList({ city, days, selected }: Props) {
                 <dd className="text-sm text-slate-600">{formatLongLabel(day.date)}</dd>
               </div>
             </dl>
-          </Link>
+          </button>
         );
       })}
     </div>

@@ -6,7 +6,8 @@ function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-const localGeoJsonPath = path.join(process.cwd(), 'public', 'data', 'us-top-40-cities.geojson');
+const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
+const localGeoJsonPath = path.join(process.cwd(), 'public', 'data', CITY_GEOJSON_FILENAME);
 
 async function loadFromFilesystem(): Promise<City[] | null> {
   try {
@@ -35,7 +36,7 @@ async function loadFromHttp(): Promise<City[] | null> {
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
     if (!base) return null;
-    const res = await fetch(`${base}/data/us-top-40-cities.geojson`, { cache: 'no-store' });
+    const res = await fetch(`${base}/data/${CITY_GEOJSON_FILENAME}`, { cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }

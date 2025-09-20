@@ -1,8 +1,11 @@
-// Fetch top 100 US cities by population from Wikidata and emit GeoJSON
-// Usage: node scripts/generate-us-cities.mjs
+// Fetch top N US cities by population from Wikidata and emit GeoJSON
+// Usage: node scripts/generate-us-cities.mjs [limit]
 import fs from 'node:fs/promises';
 
 const endpoint = 'https://query.wikidata.org/sparql';
+const limitArg = Number(process.argv[2]);
+const LIMIT = Number.isFinite(limitArg) && limitArg > 0 ? Math.min(limitArg, 500) : 175;
+
 const query = `
 SELECT ?city ?cityLabel (MAX(?pop) as ?population) ?coord WHERE {
   ?city wdt:P31/wdt:P279* wd:Q515;  # city or subclasses
@@ -16,7 +19,7 @@ SELECT ?city ?cityLabel (MAX(?pop) as ?population) ?coord WHERE {
 }
 GROUP BY ?city ?cityLabel ?coord
 ORDER BY DESC(?population)
-LIMIT 40`;
+LIMIT ${LIMIT}`;
 
 async function main() {
   const url = `${endpoint}?format=json&query=${encodeURIComponent(query)}`;
@@ -62,8 +65,9 @@ async function main() {
 
   const fc = { type: 'FeatureCollection', features };
   await fs.mkdir('public/data', { recursive: true });
-  await fs.writeFile('public/data/us-top-40-cities.geojson', JSON.stringify(fc, null, 2));
-  console.log('Wrote public/data/us-top-40-cities.geojson with', features.length, 'features');
+  const filename = `public/data/us-top-${LIMIT}-cities.geojson`;
+  await fs.writeFile(filename, JSON.stringify(fc, null, 2));
+  console.log(`Wrote ${filename} with`, features.length, 'features');
 }
 
 main().catch((e) => {
