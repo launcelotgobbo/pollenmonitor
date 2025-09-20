@@ -18,11 +18,7 @@ export const SEVERITY_COLORS: Record<string, string> = {
 
 export function getStyleUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL;
-  const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
   if (envUrl) return envUrl;
-  if (mapTilerKey) {
-    return '/api/map-style';
-  }
-  // Local raster/vector fallback (dev only)
+  // Serve the bundled style directly from /public to avoid runtime fetch failures.
   return '/map-style.json';
 }
