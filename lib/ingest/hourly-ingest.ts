@@ -1,5 +1,6 @@
 import { ambeeHourlyRange } from './ambee';
-import { upsertPollenHourly } from '@/lib/db';
+import { upsertPollenHourlyBatch } from '@/lib/db';
+import { ingestConcurrency, mapWithConcurrency } from './concurrency';
 import type { City } from './cities';
 
 export type CityIngestResult = {
@@ -36,19 +37,18 @@ export async function ingestHourlyForCities({
   onCityComplete?: (result: CityIngestResult) => void;
 }): Promise<{ summary: HourlyIngestSummary; cityResults: CityIngestResult[] }> {
   const start = Date.now();
-  const cityResults: CityIngestResult[] = [];
   let wrote = 0;
   let failed = 0;
   let totalRecordsStored = 0;
   let ambeeCalls = 0;
 
-  for (const city of cities) {
+  const cityResults = await mapWithConcurrency(cities, ingestConcurrency(), async (city) => {
     try {
       ambeeCalls += 1;
       const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO);
       if (!dryRun) {
-        for (const h of hours) {
-          await upsertPollenHourly({
+        await upsertPollenHourlyBatch(
+          hours.map((h) => ({
             city_slug: city.slug,
             ts: h.ts,
             tz: h.tz ?? null,
@@ -60,24 +60,24 @@ export async function ingestHourlyForCities({
             risk_tree: h.risk_tree ?? null,
             risk_weed: h.risk_weed ?? null,
             species: h.species ?? null,
-          });
-        }
+          })),
+        );
       }
       wrote++;
       totalRecordsStored += hours.length;
       const result: CityIngestResult = { city: city.slug, hoursFetched: hours.length, ok: true };
-      cityResults.push(result);
       onCityComplete?.(result);
+      return result;
     } catch (e) {
       failed++;
       const err = e as Error;
       const error = err?.message || String(e);
       const stack = err?.stack;
       const result: CityIngestResult = { city: city.slug, hoursFetched: 0, ok: false, error, stack };
-      cityResults.push(result);
       onCityComplete?.(result);
+      return result;
     }
-  }
+  });
 
   const summary: HourlyIngestSummary = {
     ok: failed === 0,

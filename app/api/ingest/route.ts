@@ -1,17 +1,26 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { logAmbeeUsage, logIngest } from '@/lib/db';
+import { logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
-import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
+import { runIngestJob } from '@/lib/ingest/run-ingest';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
+// Ambee Pollen API v3 history only covers the past 48 hours
+const AMBEE_HISTORY_HOURS = 48;
 
 function toISODateTime(input: Date) {
   return input.toISOString().slice(0, 19).replace('T', ' ');
 }
 
+function parseUTC(value: string): Date | null {
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(value)
+    ? value
+    : `${value.replace(' ', 'T')}Z`;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function POST(req: NextRequest) {
-  const ambeeQuota = Number(process.env.AMBEE_DAILY_QUOTA ?? '200');
   const token = req.headers.get('x-ingest-token');
   if (!process.env.INGEST_TOKEN || token !== process.env.INGEST_TOKEN) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -20,7 +29,8 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const cityFilter = searchParams.get('city');
   const dryRun = searchParams.get('dry') === 'true';
-  const hoursBack = Math.max(1, Math.min(168, Number(searchParams.get('hours') || '48')));
+  const includeWeather = searchParams.get('includeWeather') !== 'false';
+  const hoursBack = Math.max(1, Math.min(AMBEE_HISTORY_HOURS, Number(searchParams.get('hours') || '48')));
   const explicitFrom = searchParams.get('from');
   const explicitTo = searchParams.get('to');
   const dateParam = searchParams.get('date');
@@ -45,7 +55,43 @@ export async function POST(req: NextRequest) {
     fromISO = toISODateTime(start);
   }
 
+  const fromDate = parseUTC(fromISO);
+  const toDate = parseUTC(toISO);
+  if (!fromDate || !toDate || fromDate >= toDate) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid window: provide parseable from/to (or date) with from before to' }),
+      { status: 400 },
+    );
+  }
+
+  const earliest = new Date(Date.now() - AMBEE_HISTORY_HOURS * 3600 * 1000);
+  if (toDate <= earliest) {
+    return new Response(
+      JSON.stringify({
+        error: `Requested window is entirely older than the Ambee v3 history limit (past ${AMBEE_HISTORY_HOURS} hours)`,
+        earliestAvailable: toISODateTime(earliest),
+      }),
+      { status: 400 },
+    );
+  }
+  let windowClamped = false;
+  if (fromDate < earliest) {
+    fromISO = toISODateTime(earliest);
+    windowClamped = true;
+  }
+
   const jobId = randomUUID();
+
+  if (windowClamped) {
+    console.warn('[ingest manual] window clamped to Ambee history limit', {
+      level: 'warn',
+      job: 'manual-ingest',
+      jobId,
+      requestedFrom: toISODateTime(fromDate),
+      clampedFrom: fromISO,
+      historyHours: AMBEE_HISTORY_HOURS,
+    });
+  }
   const allCities = await loadTopCities();
 
   if (!allCities.length) {
@@ -86,74 +132,20 @@ export async function POST(req: NextRequest) {
     cityCount: cities.length,
     window: { from: fromISO, to: toISO },
     dryRun,
-    ambeeQuota,
+    ambeeQuota: Number(process.env.AMBEE_DAILY_QUOTA ?? '200'),
   });
 
-  const { summary, cityResults } = await ingestHourlyForCities({
+  const { result, httpStatus } = await runIngestJob({
+    job: 'manual-ingest',
+    logLabel: '[ingest manual]',
+    jobId,
     cities,
     fromISO,
     toISO,
     dryRun,
-    onCityComplete: (outcome) => {
-      if (outcome.ok) {
-        console.log('[ingest manual] city success', {
-          level: 'info',
-          job: 'manual-ingest',
-          jobId,
-          city: outcome.city,
-          hoursFetched: outcome.hoursFetched,
-        });
-      } else {
-        console.error('[ingest manual] city failure', {
-          level: 'error',
-          job: 'manual-ingest',
-          jobId,
-          city: outcome.city,
-          message: outcome.error,
-          stack: outcome.stack,
-        });
-      }
-    },
+    includeWeather,
   });
-
-  const status = summary.ok ? 'success' : summary.failed === cities.length ? 'failure' : 'partial';
-  const result = {
-    jobId,
-    dryRun,
-    ...summary,
-    totalDaysStored: summary.totalRecordsStored,
-    cityResults,
-    status,
-  };
-  console.log('[ingest manual] completed', {
-    level: 'info',
-    job: 'manual-ingest',
-    ts: new Date().toISOString(),
-    ...result,
-    status,
-  });
-
-  if (result.ambeeCalls > ambeeQuota) {
-    console.warn('[ingest manual] ambee call quota exceeded', {
-      level: 'warn',
-      job: 'manual-ingest',
-      jobId,
-      ambeeCalls: result.ambeeCalls,
-      quota: ambeeQuota,
-    });
-  }
-
-  await logIngest(status, result);
-  const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
-  if (result.ambeeCalls > 0) {
-    await logAmbeeUsage('manual-ingest', jobId, result.ambeeCalls, {
-      window: { from: fromISO, to: toISO },
-      cities: cities.map((c) => c.slug),
-      status,
-      dryRun,
-    });
-  }
-  return Response.json(result, { status: httpStatus });
+  return Response.json({ ...result, windowClamped }, { status: httpStatus });
 }
 
 export const dynamic = 'force-dynamic';

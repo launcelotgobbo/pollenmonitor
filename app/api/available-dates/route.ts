@@ -1,23 +1,18 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
+import { query } from '@/lib/db';
 
 export async function GET(_req: NextRequest) {
   try {
-    // Collect distinct dates from hourly readings (last N rows)
-    const rows = await supabaseGet<Array<{ ts: string }>>(
-      'pollen_readings_hourly',
-      'select=ts&order=ts.desc&limit=5000',
+    const { rows } = await query<{ date: string }>(
+      `SELECT DISTINCT (ts AT TIME ZONE 'UTC')::date::text AS date
+       FROM pollen_readings_hourly
+       WHERE (ts AT TIME ZONE 'UTC')::date <= (now() AT TIME ZONE 'UTC')::date
+       ORDER BY date DESC`,
     );
-    const seen = new Set<string>();
-    const today = new Date().toISOString().slice(0, 10);
-    const dates = rows
-      .map((r) => (r.ts || '').slice(0, 10))
-      .filter((d) => d && d <= today)
-      .filter((d) => (seen.has(d) ? false : (seen.add(d), true)));
-    return Response.json({ dates });
+    return Response.json({ dates: rows.map((r) => r.date) });
   } catch (e: any) {
     console.error('[available-dates] error:', e);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
   }
 }
 

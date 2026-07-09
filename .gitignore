@@ -21,7 +21,9 @@ coverage
 *.swp
 *.swo
 
-# Package managers
+# Package managers (npm lockfile is tracked for reproducible CI builds)
 pnpm-lock.yaml
 yarn.lock
-package-lock.json
+
+# TypeScript
+tsconfig.tsbuildinfo

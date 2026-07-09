@@ -1,3 +1,5 @@
+import { fetchWithRetry } from '@/lib/http';
+
 const AMBEE_BASE = 'https://api.ambeedata.com';
 
 function headers() {
@@ -46,17 +48,23 @@ export async function ambeeHourlyRange(
     return out;
   }
   const enc = (s: string) => encodeURIComponent(s);
-  const url = `${AMBEE_BASE}/history/pollen/by-lat-lng?lat=${lat}&lng=${lon}&from=${enc(fromISO)}&to=${enc(toISO)}`;
-  const res = await fetch(url, { headers: headers(), cache: 'no-store' });
+  // Pollen API v3 (https://docs-pollen-v3.ambeedata.com/); history covers at most the past 48 hours
+  const url = `${AMBEE_BASE}/v3/pollen/history?lat=${lat}&lng=${lon}&from=${enc(fromISO)}&to=${enc(toISO)}&locale=true`;
+  const res = await fetchWithRetry(url, { headers: headers(), cache: 'no-store' });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Ambee hourly range failed (${res.status}): ${body}`);
   }
   const json = await res.json();
   const list = Array.isArray(json?.data) ? json.data : [];
+  const responseTz = typeof json?.timezone === 'string' ? json.timezone : null;
   return list.map((hour: any) => {
-    const ts = hour?.createdAt || (hour?.time ? new Date(hour.time * 1000).toISOString() : null);
-    const tz = hour?.timezone || null;
+    const ts =
+      hour?.timestamp ||
+      (hour?.unixTs ? new Date(hour.unixTs * 1000).toISOString() : null) ||
+      hour?.createdAt ||
+      (hour?.time ? new Date(hour.time * 1000).toISOString() : null);
+    const tz = hour?.timezone || responseTz;
     const risk = hour?.Risk || {};
     const cnt = hour?.Count || {};
     const species = hour?.Species || null;

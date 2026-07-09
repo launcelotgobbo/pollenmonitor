@@ -9,17 +9,20 @@ function slugify(name: string) {
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 const localGeoJsonPath = path.join(process.cwd(), 'public', 'data', CITY_GEOJSON_FILENAME);
 
+function parseFeatureCollection(fc: any): City[] {
+  return fc.features.map((f: any) => ({
+    name: f.properties.name as string,
+    slug: slugify(f.properties.name as string),
+    lon: f.geometry.coordinates[0],
+    lat: f.geometry.coordinates[1],
+  }));
+}
+
 async function loadFromFilesystem(): Promise<City[] | null> {
   try {
     const fs = await import('node:fs/promises');
     const buf = await fs.readFile(localGeoJsonPath, 'utf-8');
-    const fc = JSON.parse(buf);
-    return fc.features.map((f: any) => ({
-      name: f.properties.name as string,
-      slug: slugify(f.properties.name as string),
-      lon: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-    }));
+    return parseFeatureCollection(JSON.parse(buf));
   } catch (err) {
     console.error('[cities] failed to read local geojson', {
       level: 'error',
@@ -40,13 +43,7 @@ async function loadFromHttp(): Promise<City[] | null> {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
-    const fc = await res.json();
-    return fc.features.map((f: any) => ({
-      name: f.properties.name as string,
-      slug: slugify(f.properties.name as string),
-      lon: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-    }));
+    return parseFeatureCollection(await res.json());
   } catch (err) {
     console.error('[cities] failed to load geojson via HTTP', {
       level: 'error',

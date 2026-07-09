@@ -1,21 +1,5 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
-
-const DATE_LIMIT = 500;
-
-const uniqueDates = (timestamps: Array<{ ts?: string | null }>, limit: number) => {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const row of timestamps) {
-    const date = row.ts?.slice(0, 10);
-    if (!date) continue;
-    if (seen.has(date)) continue;
-    seen.add(date);
-    result.push(date);
-    if (result.length >= limit) break;
-  }
-  return result;
-};
+import { query } from '@/lib/db';
 
 const addDays = (date: string, days: number) => {
   const d = new Date(`${date}T00:00:00Z`);
@@ -30,23 +14,27 @@ export async function GET(req: NextRequest) {
   if (!city) return new Response(JSON.stringify({ error: 'city required' }), { status: 400 });
 
   try {
-    const baseRows = await supabaseGet<Array<{ ts: string }>>(
-      'pollen_readings_hourly',
-      `select=ts&city_slug=eq.${city}&order=ts.desc&limit=${Math.min(DATE_LIMIT, days * 32)}`,
+    const { rows: baseRows } = await query<{ date: string }>(
+      `SELECT DISTINCT (ts AT TIME ZONE 'UTC')::date::text AS date
+       FROM pollen_readings_hourly
+       WHERE city_slug = $1
+       ORDER BY date DESC
+       LIMIT $2`,
+      [city, days],
     );
-    const baseDates = uniqueDates(baseRows, days);
+    const baseDates = baseRows.map((r) => r.date);
     if (baseDates.length === 0) return Response.json({ city, rows: [] });
 
     const earliest = baseDates[baseDates.length - 1];
     const latest = baseDates[0];
     const fromDate = new Date(`${earliest}T00:00:00Z`);
     const toDate = new Date(`${addDays(latest, 3)}T00:00:00Z`);
-    const fromISO = encodeURIComponent(fromDate.toISOString());
-    const toISO = encodeURIComponent(toDate.toISOString());
 
-    const hourly = await supabaseGet<Array<{ ts: string; grass: number | null; tree: number | null; weed: number | null }>>(
-      'pollen_readings_hourly',
-      `select=ts,grass,tree,weed&city_slug=eq.${city}&ts=gte.${fromISO}&ts=lt.${toISO}`,
+    const { rows: hourly } = await query<{ ts: string; grass: number | null; tree: number | null; weed: number | null }>(
+      `SELECT (ts AT TIME ZONE 'UTC')::text AS ts, grass, tree, weed
+       FROM pollen_readings_hourly
+       WHERE city_slug = $1 AND ts >= $2 AND ts < $3`,
+      [city, fromDate.toISOString(), toDate.toISOString()],
     );
 
     const aggregate = new Map<string, { tree: number | null; grass: number | null; weed: number | null }>();
@@ -81,7 +69,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ city, rows });
   } catch (e: any) {
     console.error('[city-type-matrix] error', e);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check env vars.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
   }
 }
 

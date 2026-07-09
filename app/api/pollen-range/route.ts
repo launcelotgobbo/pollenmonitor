@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
+import { query, TS_ISO } from '@/lib/db';
 import {
   AggregatedCityDays,
   HourlyRow,
@@ -31,21 +31,18 @@ export async function GET(req: NextRequest) {
     const limitParam = Number(searchParams.get('limit') || '20000');
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50000) : 20000;
 
-    const params = new URLSearchParams();
-    params.set('select', 'city_slug,ts,tree,grass,weed,risk_tree,risk_grass,risk_weed,tz');
-    params.set('order', 'ts.asc');
-    params.set('ts', `gte.${fromIso}`);
-    params.append('ts', `lt.${toIso}`);
-    params.set('limit', limit.toString());
-
-    if (cityList.length === 1) {
-      params.set('city_slug', `eq.${cityList[0]}`);
-    } else if (cityList.length > 1) {
-      const inList = cityList.map((slug) => `"${slug}"`).join(',');
-      params.set('city_slug', `in.(${inList})`);
-    }
-
-    const rows = await supabaseGet<HourlyRow[]>('pollen_readings_hourly', params.toString());
+    const cityFilter = cityList.length > 0 ? 'AND city_slug = ANY($3::text[])' : '';
+    const params: any[] = cityList.length > 0 ? [fromIso, toIso, cityList, limit] : [fromIso, toIso, limit];
+    const limitPlaceholder = `$${params.length}`;
+    const { rows } = await query<HourlyRow>(
+      `SELECT city_slug, ${TS_ISO} AS ts, tree, grass, weed,
+              risk_tree, risk_grass, risk_weed, tz
+       FROM pollen_readings_hourly
+       WHERE ts >= $1 AND ts < $2 ${cityFilter}
+       ORDER BY ts ASC
+       LIMIT ${limitPlaceholder}`,
+      params,
+    );
 
     if (aggregate === 'day') {
       const aggregated: AggregatedCityDays[] = aggregateDaily(rows);

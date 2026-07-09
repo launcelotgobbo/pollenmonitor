@@ -1,5 +1,12 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
+import { query, TS_ISO } from '@/lib/db';
+
+function utcDayWindow(date: string): { dayStart: string; dayEnd: string } {
+  const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
+  const nextDay = new Date(`${date}T00:00:00Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return { dayStart, dayEnd: nextDay.toISOString() };
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -9,15 +16,16 @@ export async function GET(req: NextRequest) {
   try {
     if (city && date) {
       // Return hourly rows for the UTC day window
-      const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
-      const nextDay = new Date(`${date}T00:00:00Z`);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      const dayEnd = nextDay.toISOString();
-      const rows = await supabaseGet<Array<any>>(
-        'pollen_readings_hourly',
-        `select=ts,grass,tree,weed,timezone:tz,species,risk_grass,risk_tree,risk_weed&city_slug=eq.${city}&ts=gte.${dayStart}&ts=lt.${dayEnd}&order=ts.asc`,
+      const { dayStart, dayEnd } = utcDayWindow(date);
+      const { rows } = await query<any>(
+        `SELECT ${TS_ISO} AS ts, grass, tree, weed, tz AS timezone, species,
+                risk_grass, risk_tree, risk_weed
+         FROM pollen_readings_hourly
+         WHERE city_slug = $1 AND ts >= $2 AND ts < $3
+         ORDER BY ts ASC`,
+        [city, dayStart, dayEnd],
       );
-      const out = rows.map((r) => ({
+      const out = rows.map((r: any) => ({
         ts: r.ts,
         tree: r.tree ?? null,
         grass: r.grass ?? null,
@@ -32,111 +40,47 @@ export async function GET(req: NextRequest) {
       return Response.json({ city, date, rows: out });
     }
     if (city && !date) {
-      const params = new URLSearchParams();
-      params.set('select', 'ts,tree,grass,weed,tz');
-      params.set('city_slug', `eq.${city}`);
-      params.set('order', 'ts.desc');
-      params.set('limit', '20000');
-
-      const rows = await supabaseGet<Array<any>>('pollen_readings_hourly', params.toString());
-      const aggregates = new Map<
-        string,
-        {
-          treeSum: number;
-          treeCount: number;
-          grassSum: number;
-          grassCount: number;
-          weedSum: number;
-          weedCount: number;
-          totalSum: number;
-          totalCount: number;
-          timezone: string | null;
-        }
-      >();
-
-      for (const row of rows) {
-        const ts = typeof row.ts === 'string' ? row.ts : null;
-        const dateKey = ts ? ts.slice(0, 10) : null;
-        if (!dateKey) continue;
-
-        const tree = typeof row.tree === 'number' ? row.tree : null;
-        const grass = typeof row.grass === 'number' ? row.grass : null;
-        const weed = typeof row.weed === 'number' ? row.weed : null;
-        const total =
-          tree === null && grass === null && weed === null
-            ? null
-            : (tree ?? 0) + (grass ?? 0) + (weed ?? 0);
-
-        const aggregate = aggregates.get(dateKey) ?? {
-          treeSum: 0,
-          treeCount: 0,
-          grassSum: 0,
-          grassCount: 0,
-          weedSum: 0,
-          weedCount: 0,
-          totalSum: 0,
-          totalCount: 0,
-          timezone: null,
-        };
-
-        if (tree !== null) {
-          aggregate.treeSum += tree;
-          aggregate.treeCount += 1;
-        }
-        if (grass !== null) {
-          aggregate.grassSum += grass;
-          aggregate.grassCount += 1;
-        }
-        if (weed !== null) {
-          aggregate.weedSum += weed;
-          aggregate.weedCount += 1;
-        }
-        if (total !== null) {
-          aggregate.totalSum += total;
-          aggregate.totalCount += 1;
-        }
-
-        if (!aggregate.timezone) {
-          const tz = typeof row.tz === 'string' && row.tz.trim() ? row.tz.trim() : null;
-          if (tz) aggregate.timezone = tz;
-        }
-
-        aggregates.set(dateKey, aggregate);
-      }
-
-      const avg = (sum: number, count: number) => (count > 0 ? Math.round(sum / count) : null);
-      const out = Array.from(aggregates.entries())
-        .map(([dateKey, aggregate]) => ({
-          date: dateKey,
-          avg_tree: avg(aggregate.treeSum, aggregate.treeCount),
-          avg_grass: avg(aggregate.grassSum, aggregate.grassCount),
-          avg_weed: avg(aggregate.weedSum, aggregate.weedCount),
-          avg_total: avg(aggregate.totalSum, aggregate.totalCount),
-          timezone: aggregate.timezone,
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 720);
-
-      return Response.json({ city, rows: out });
+      // Daily averages over the city's history (most recent 720 days)
+      const { rows } = await query<any>(
+        `SELECT to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+                round(avg(tree))::int AS avg_tree,
+                round(avg(grass))::int AS avg_grass,
+                round(avg(weed))::int AS avg_weed,
+                round(avg(CASE
+                  WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
+                  ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
+                END))::int AS avg_total,
+                max(tz) AS timezone
+         FROM pollen_readings_hourly
+         WHERE city_slug = $1
+         GROUP BY 1
+         ORDER BY date DESC
+         LIMIT 720`,
+        [city],
+      );
+      return Response.json({ city, rows });
     }
     if (date && !city) {
-      // Return one summary per city for that day: max weed across hours
-      const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
-      const nextDay = new Date(`${date}T00:00:00Z`);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      const dayEnd = nextDay.toISOString();
-      const rows = await supabaseGet<Array<any>>(
-        'pollen_readings_hourly',
-        `select=city_slug,ts,grass,tree,weed&ts=gte.${dayStart}&ts=lt.${dayEnd}`,
+      // One summary per city for that day: latest reading count + max weed
+      const { dayStart, dayEnd } = utcDayWindow(date);
+      const { rows } = await query<any>(
+        `SELECT DISTINCT ON (city_slug)
+                city_slug,
+                coalesce(grass, 0) + coalesce(tree, 0) + coalesce(weed, 0) AS count,
+                max(coalesce(weed, 0)) OVER (PARTITION BY city_slug) AS max_weed
+         FROM pollen_readings_hourly
+         WHERE ts >= $1 AND ts < $2
+         ORDER BY city_slug, ts DESC`,
+        [dayStart, dayEnd],
       );
-      const byCity: Record<string, any[]> = {};
-      for (const r of rows) (byCity[r.city_slug] ||= []).push(r);
-      const out = Object.entries(byCity).map(([slug, arr]) => {
-        const maxWeed = arr.reduce((m, r) => Math.max(m, r.weed ?? 0), 0);
-        const latest = arr.sort((a, b) => a.ts.localeCompare(b.ts)).slice(-1)[0] || {};
-        const count = (latest.grass ?? 0) + (latest.tree ?? 0) + (latest.weed ?? 0);
-        return { city: slug, date, count, source: 'ambee', is_forecast: false, max_weed: maxWeed };
-      });
+      const out = rows.map((r: any) => ({
+        city: r.city_slug,
+        date,
+        count: r.count,
+        source: 'ambee',
+        is_forecast: false,
+        max_weed: r.max_weed,
+      }));
       return Response.json({ date, rows: out });
     }
     return new Response(
@@ -145,7 +89,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (err: any) {
     console.error('[pollen] error', err);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check env vars.' }), {
+    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), {
       status: 500,
       headers: { 'content-type': 'application/json' },
     });

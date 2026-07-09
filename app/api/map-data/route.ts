@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
-
-const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
+import { query, TS_ISO } from '@/lib/db';
+import { loadTopCities } from '@/lib/ingest/cities';
+import { pickHigherRisk } from '@/lib/risk';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -16,49 +16,22 @@ export async function GET(req: NextRequest) {
     const dayEnd = windowEnd.toISOString();
 
     // Fetch hourly rows for the base day plus the next two days
-    const hr = await supabaseGet<Array<any>>(
-      'pollen_readings_hourly',
-      `select=city_slug,ts,grass,tree,weed,risk_grass,risk_tree,risk_weed,tz&ts=gte.${dayStart}&ts=lt.${dayEnd}&order=ts.asc`,
+    const { rows: hr } = await query<any>(
+      `SELECT city_slug, ${TS_ISO} AS ts, grass, tree, weed,
+              risk_grass, risk_tree, risk_weed, tz
+       FROM pollen_readings_hourly
+       WHERE ts >= $1 AND ts < $2
+       ORDER BY ts ASC`,
+      [dayStart, dayEnd],
     );
 
-    // Load city coordinates from public file
-    const origin = new URL(req.url).origin;
-    const citiesRes = await fetch(`${origin}/data/${CITY_GEOJSON_FILENAME}`, { cache: 'no-store' });
-    const cities = await citiesRes.json();
+    const cities = await loadTopCities();
     const coords: Record<string, [number, number]> = {};
-    for (const f of cities.features) {
-      coords[f.properties.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')] = f.geometry.coordinates;
-    }
+    for (const c of cities) coords[c.slug] = [c.lon, c.lat];
 
     // Group by city
     const byCity: Record<string, any[]> = {};
     for (const r of hr) (byCity[r.city_slug] ||= []).push(r);
-
-    const normalizeRisk = (value: string | null | undefined) => {
-      if (!value) return null;
-      return value.toString().trim().toLowerCase().replace(/\s+/g, '-').replace(/_+/g, '-');
-    };
-
-    const riskPriority: Record<string, number> = {
-      'very-high': 5,
-      extreme: 5,
-      severe: 4,
-      high: 3,
-      moderate: 2,
-      medium: 2,
-      low: 1,
-      'very-low': 0,
-      minimal: 0,
-    };
-
-    const pickRisk = (current: string | null, next: string | null) => {
-      const normCurrent = normalizeRisk(current);
-      const normNext = normalizeRisk(next);
-      const scoreCurrent = normCurrent && riskPriority[normCurrent] !== undefined ? riskPriority[normCurrent] : -1;
-      const scoreNext = normNext && riskPriority[normNext] !== undefined ? riskPriority[normNext] : -1;
-      if (scoreNext > scoreCurrent) return next ?? null;
-      return current ?? (next ?? null);
-    };
 
     const bumpMax = (current: number | null, value: number | null | undefined) => {
       if (value === null || value === undefined) return current ?? null;
@@ -84,9 +57,9 @@ export async function GET(req: NextRequest) {
         existing.tree = bumpMax(existing.tree, r.tree ?? null);
         existing.grass = bumpMax(existing.grass, r.grass ?? null);
         existing.weed = bumpMax(existing.weed, r.weed ?? null);
-        existing.risk_tree = pickRisk(existing.risk_tree, r.risk_tree ?? null);
-        existing.risk_grass = pickRisk(existing.risk_grass, r.risk_grass ?? null);
-        existing.risk_weed = pickRisk(existing.risk_weed, r.risk_weed ?? null);
+        existing.risk_tree = pickHigherRisk(existing.risk_tree, r.risk_tree ?? null);
+        existing.risk_grass = pickHigherRisk(existing.risk_grass, r.risk_grass ?? null);
+        existing.risk_weed = pickHigherRisk(existing.risk_weed, r.risk_weed ?? null);
         existing.timezone = existing.timezone || r.tz || null;
         perDay.set(day, existing);
       }
@@ -128,7 +101,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ type: 'FeatureCollection', features });
   } catch (e: any) {
     console.error('[map-data] error', e);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check env vars.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
   }
 }
 

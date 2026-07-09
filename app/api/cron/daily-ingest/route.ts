@@ -1,18 +1,23 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { logAmbeeUsage, logIngest } from '@/lib/db';
+import { logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
-import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
+import { runIngestJob } from '@/lib/ingest/run-ingest';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 
 export async function GET(req: NextRequest) {
-  const ambeeQuota = Number(process.env.AMBEE_DAILY_QUOTA ?? '200');
   const cronHeader =
     req.headers.get('x-vercel-cron') ||
     req.headers.get('x-vercel-schedule') ||
     req.headers.get('x-vercel-oidc-token') ||
     req.headers.get('x-vercel-proxy-signature');
+  // Vercel Cron sends "Authorization: Bearer $CRON_SECRET" when the env var is
+  // set; fall back to the spoofable header-presence check only when it is not.
+  const cronSecret = process.env.CRON_SECRET;
+  const cronAuthorized = cronSecret
+    ? req.headers.get('authorization') === `Bearer ${cronSecret}`
+    : Boolean(cronHeader);
   const urlToken = new URL(req.url).searchParams.get('token');
   const headerToken = req.headers.get('x-ingest-token');
   const validToken = process.env.INGEST_TOKEN;
@@ -20,7 +25,7 @@ export async function GET(req: NextRequest) {
   const urlTokenProvided = Boolean(urlToken && urlToken.length > 0);
   const headerTokenProvided = Boolean(headerToken && headerToken.length > 0);
   const tokenMatch = Boolean(validToken && (urlToken === validToken || headerToken === validToken));
-  const authorized = Boolean(cronHeader || tokenMatch);
+  const authorized = Boolean(cronAuthorized || tokenMatch);
   const jobId =
     req.headers.get('x-vercel-id') ||
     req.headers.get('x-vercel-cron-id') ||
@@ -37,6 +42,7 @@ export async function GET(req: NextRequest) {
       jobId,
       ts: new Date().toISOString(),
       isCron: Boolean(cronHeader),
+      cronSecretConfigured: Boolean(cronSecret),
       envTokenPresent,
       urlTokenProvided,
       headerTokenProvided,
@@ -65,7 +71,7 @@ export async function GET(req: NextRequest) {
     window: { from: fromISO, to: toISO },
     cityCount: cities.length,
     source: 'ambee-hourly',
-    ambeeQuota,
+    ambeeQuota: Number(process.env.AMBEE_DAILY_QUOTA ?? '200'),
   });
 
   if (cities.length === 0) {
@@ -91,65 +97,15 @@ export async function GET(req: NextRequest) {
     await logIngest('failure', failure);
     return new Response(JSON.stringify(failure), { status: 500 });
   }
-  const { summary, cityResults } = await ingestHourlyForCities({
+
+  const { result, httpStatus } = await runIngestJob({
+    job: 'daily-ingest',
+    logLabel: '[cron daily-ingest]',
+    jobId,
     cities,
     fromISO,
     toISO,
-    onCityComplete: (outcome) => {
-      if (outcome.ok) {
-        console.log('[cron daily-ingest] city success', {
-          level: 'info',
-          job: 'daily-ingest',
-          jobId,
-          city: outcome.city,
-          hoursFetched: outcome.hoursFetched,
-        });
-      } else {
-        console.error('[cron daily-ingest] city failure', {
-          level: 'error',
-          job: 'daily-ingest',
-          jobId,
-          city: outcome.city,
-          message: outcome.error,
-          stack: outcome.stack,
-        });
-      }
-    },
   });
-
-  const status = summary.ok ? 'success' : summary.failed === cities.length ? 'failure' : 'partial';
-  const result = {
-    ...summary,
-    totalDaysStored: summary.totalRecordsStored,
-    jobId,
-    cityResults,
-    status,
-  };
-  console.log('[cron daily-ingest] completed', {
-    level: 'info',
-    job: 'daily-ingest',
-    ts: new Date().toISOString(),
-    ...result,
-    status,
-  });
-  if (result.ambeeCalls > ambeeQuota) {
-    console.warn('[cron daily-ingest] ambee call quota exceeded', {
-      level: 'warn',
-      job: 'daily-ingest',
-      jobId,
-      ambeeCalls: result.ambeeCalls,
-      quota: ambeeQuota,
-    });
-  }
-  await logIngest(status, result);
-  const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
-  if (result.ambeeCalls > 0) {
-    await logAmbeeUsage('daily-ingest', jobId, result.ambeeCalls, {
-      window: { from: fromISO, to: toISO },
-      cities: cities.map((c) => c.slug),
-      status,
-    });
-  }
   return Response.json(result, { status: httpStatus });
 }
 

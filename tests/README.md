@@ -1,12 +1,7 @@
 # Tests
 
-- Unit tests: place under `tests/unit` as `*.test.tsx?`.
-- E2E tests: place under `tests/e2e` as `*.spec.ts` (Playwright).
-
-Add frameworks as needed:
-- Jest + React Testing Library for unit tests.
-- Playwright for e2e.
-
-Run:
-- `npm test` (placeholder) until frameworks are installed.
-- `npx playwright test` if Playwright is set up.
+- Runner: Node.js built-in test runner via `tsx` - run with `npm test`.
+- Location: `tests/**/*.test.ts`, mirroring the `app`/`lib` structure.
+- Path aliases (`@/lib/...`) resolve through tsconfig paths.
+- Provider clients (Ambee, OpenWeather) are tested by stubbing `globalThis.fetch`; tests must not hit the network or a live database.
+- E2E: Playwright under `tests/e2e` as `*.spec.ts` (not yet configured).

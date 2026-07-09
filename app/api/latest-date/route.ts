@@ -1,17 +1,16 @@
 import { NextRequest } from 'next/server';
-import { supabaseGet } from '@/lib/supabaseRest';
+import { query } from '@/lib/db';
 
 export async function GET(_req: NextRequest) {
   try {
-    const rows = await supabaseGet<Array<{ ts: string }>>(
-      'pollen_readings_hourly',
-      'select=ts&order=ts.desc&limit=1',
+    const { rows } = await query<{ date: string | null }>(
+      `SELECT to_char(max(ts) AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date FROM pollen_readings_hourly`,
     );
-    const latest = rows?.[0]?.ts?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const latest = rows[0]?.date || new Date().toISOString().slice(0, 10);
     return Response.json({ date: latest });
   } catch (e: any) {
     console.error('[latest-date] error:', e);
-    return new Response(JSON.stringify({ error: 'Supabase unavailable. Check SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY.' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
   }
 }
 
