@@ -15,6 +15,12 @@ export function normalizeRiskValue(value: string | null | undefined) {
   return value.toString().trim().toLowerCase().replace(/\s+/g, '-').replace(/_+/g, '-');
 }
 
+// 0..5 severity score; -1 when the risk label is missing or unrecognized
+export function riskScore(value: string | null | undefined): number {
+  const norm = normalizeRiskValue(value);
+  return norm !== null && norm in riskPriority ? riskPriority[norm] : -1;
+}
+
 export function pickHigherRisk(a: string | null | undefined, b: string | null | undefined) {
   const normA = normalizeRiskValue(a);
   const normB = normalizeRiskValue(b);

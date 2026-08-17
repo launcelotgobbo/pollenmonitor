@@ -4,20 +4,38 @@ import { buildPopupHtml } from './popup';
 export const POLLEN_SOURCE_ID = 'pollen';
 export const POLLEN_LAYER_ID = 'unclustered-point';
 
-// Thresholds and colors match the severity buckets shown in Legend.tsx
-const SEVERITY_STEP_PAINT = [
-  'step',
-  ['get', 'max_weed'],
-  '#4caf50',
-  25, '#ffb300',
-  75, '#fb8c00',
-  125, '#e53935',
-];
+export type PollenType = 'total' | 'tree' | 'grass' | 'weed';
 
-export function upsertPollenData(map: maplibregl.Map, geojson: any, getDate: () => string) {
+// Ambee risk scores (see lib/risk.ts riskPriority); colors match Legend.tsx.
+// Score < 0 means no risk data for the selected type.
+export function severityPaint(type: PollenType) {
+  return [
+    'step',
+    ['coalesce', ['get', `sev_${type}`], -1],
+    '#9e9e9e',
+    0, '#4caf50',
+    2, '#ffb300',
+    3, '#fb8c00',
+    4, '#e53935',
+  ];
+}
+
+export function setPollenTypePaint(map: maplibregl.Map, type: PollenType) {
+  if (map.getLayer(POLLEN_LAYER_ID)) {
+    map.setPaintProperty(POLLEN_LAYER_ID, 'circle-color', severityPaint(type) as any);
+  }
+}
+
+export function upsertPollenData(
+  map: maplibregl.Map,
+  geojson: any,
+  getDate: () => string,
+  type: PollenType = 'total',
+) {
   const existing = map.getSource(POLLEN_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
   if (existing && 'setData' in existing) {
     existing.setData(geojson);
+    setPollenTypePaint(map, type);
     return;
   }
 
@@ -33,7 +51,7 @@ export function upsertPollenData(map: maplibregl.Map, geojson: any, getDate: () 
     source: POLLEN_SOURCE_ID,
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': SEVERITY_STEP_PAINT,
+      'circle-color': severityPaint(type),
       'circle-radius': 6,
       'circle-stroke-width': 1,
       'circle-stroke-color': '#ffffff',
