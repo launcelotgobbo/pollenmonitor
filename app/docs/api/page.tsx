@@ -66,6 +66,26 @@ export default function ApiDocsPage() {
       </section>
 
       <section className="space-y-4">
+        <h2 className="text-xl font-semibold">48-hour forecast</h2>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`GET ${baseUrl}/api/forecast?city=denver`}
+        </pre>
+        <p className="text-sm leading-6 text-slate-600">
+          Hourly pollen forecast for the next 48 hours (Ambee). Responses are cached server-side for up to 6 hours per city; when the daily provider quota is nearly exhausted the most recent cached rows are returned with <code>stale: true</code> and <code>quotaExhausted: true</code>.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Daily weather</h2>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`GET ${baseUrl}/api/weather?city=denver&date=2026-07-08`}
+        </pre>
+        <p className="text-sm leading-6 text-slate-600">
+          Daily weather and air-quality observations (OpenWeather) collected alongside pollen data. Provide <code>city</code>, <code>date</code>, or both: <code>city</code> alone returns up to 365 days (newest first), <code>date</code> alone returns a compact per-city snapshot for that day.
+        </p>
+      </section>
+
+      <section className="space-y-4">
         <h2 className="text-xl font-semibold">Custom ranges</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
 {`GET ${baseUrl}/api/pollen-range?from=2024-04-01&to=2024-04-15&city=denver&aggregate=day`}

@@ -51,6 +51,18 @@ Below is an example configuration using the [rest MCP transport](https://github.
         "aggregate": { "type": "string", "required": false, "enum": ["none", "day"], "default": "none" },
         "limit": { "type": "integer", "required": false, "default": 20000 }
       }
+    },
+    {
+      "id": "pollen-forecast",
+      "kind": "rest",
+      "displayName": "48-hour forecast",
+      "docs": "Hourly pollen forecast for the next 48 hours for a city.",
+      "baseUrl": "${NEXT_PUBLIC_BASE_URL}/api/forecast",
+      "path": "",
+      "method": "GET",
+      "query": {
+        "city": { "type": "string", "required": true, "description": "City slug (e.g. denver)" }
+      }
     }
   ]
 }
@@ -66,7 +78,7 @@ Below is an example configuration using the [rest MCP transport](https://github.
    npx @modelcontextprotocol/rest-provider serve --config ~/.mcp/pollen-monitor.json
    ```
 
-4. The MCP client will now expose three tools (`pollen-city-hourly`, `pollen-city-daily`, `pollen-range`). Assistants can invoke them to retrieve structured pollen data.
+4. The MCP client will now expose four tools (`pollen-city-hourly`, `pollen-city-daily`, `pollen-range`, `pollen-forecast`). Assistants can invoke them to retrieve structured pollen data.
 
 ### Notes
 
