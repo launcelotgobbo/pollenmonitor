@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { ambeeHourlyRange } from '@/lib/ingest/ambee';
+import { ambeeForecast48h, ambeeHourlyRange } from '@/lib/ingest/ambee';
 
 type FetchStub = (input: any, init?: any) => Promise<Response>;
 
@@ -104,6 +104,55 @@ test('ambeeHourlyRange throws with status and body on API failure', async () => 
     ),
     /Ambee hourly range failed \(429\).*Limit Exceeded/,
   );
+});
+
+test('ambeeForecast48h calls the v3 forecast endpoint and reuses the response mapping', async () => {
+  let requestedUrl = '';
+  const rows = await withStubbedFetch(
+    async (input) => {
+      requestedUrl = String(input);
+      return new Response(JSON.stringify(v3Response), { status: 200 });
+    },
+    () => ambeeForecast48h(39.74, -104.99),
+  );
+
+  const url = new URL(requestedUrl);
+  assert.equal(url.origin, 'https://api.ambeedata.com');
+  assert.equal(url.pathname, '/v3/pollen/forecast/48hrs');
+  assert.equal(url.searchParams.get('lat'), '39.74');
+  assert.equal(url.searchParams.get('lng'), '-104.99');
+  assert.equal(url.searchParams.get('locale'), 'true');
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].ts, '2026-07-08T10:00:00.000Z');
+  assert.equal(rows[0].tz, 'America/Denver');
+  assert.equal(rows[0].tree, 78);
+  assert.equal(rows[0].risk_tree, 'Moderate');
+});
+
+test('ambeeForecast48h throws with status and body on API failure', async () => {
+  await assert.rejects(
+    withStubbedFetch(
+      async () => new Response('{"message":"Limit Exceeded"}', { status: 429 }),
+      () => ambeeForecast48h(39.74, -104.99),
+    ),
+    /Ambee 48h forecast failed \(429\).*Limit Exceeded/,
+  );
+});
+
+test('ambeeForecast48h returns 48 hourly mock rows when USE_MOCK_DATA is enabled', async () => {
+  const originalMock = process.env.USE_MOCK_DATA;
+  process.env.USE_MOCK_DATA = 'true';
+  try {
+    const rows = await ambeeForecast48h(39.74, -104.99);
+    assert.equal(rows.length, 48);
+    for (const row of rows) {
+      assert.ok(typeof row.tree === 'number');
+    }
+  } finally {
+    if (originalMock === undefined) delete process.env.USE_MOCK_DATA;
+    else process.env.USE_MOCK_DATA = originalMock;
+  }
 });
 
 test('ambeeHourlyRange returns hourly mock data when USE_MOCK_DATA is enabled', async () => {

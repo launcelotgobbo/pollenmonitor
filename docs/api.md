@@ -139,6 +139,84 @@ Errors return a `400` with an explanatory message, for example:
 { "error": "Parameter 'from' must be before 'to'" }
 ```
 
+## `GET /api/weather`
+
+Daily weather and air-quality observations (OpenWeather) collected alongside pollen data.
+
+| Parameter | Required | Description                                           |
+|-----------|----------|-------------------------------------------------------|
+| `city`    | ❌*       | City slug. Alone: up to 365 days, newest first.       |
+| `date`    | ❌*       | `YYYY-MM-DD`. Alone: cross-city snapshot for the day. |
+
+*Provide `city`, `date`, or both.
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/weather?city=denver&date=2026-07-08
+```
+
+```json
+{
+  "city": "denver",
+  "date": "2026-07-08",
+  "rows": [
+    {
+      "city_slug": "denver",
+      "date": "2026-07-08",
+      "temp_min_c": 14.2,
+      "temp_max_c": 31.5,
+      "temp_day_c": 28.9,
+      "humidity": 32,
+      "wind_speed_ms": 4.6,
+      "wind_deg": 180,
+      "precip_mm": 0,
+      "uvi": 8.1,
+      "weather_main": "Clear",
+      "aqi": 2,
+      "aqi_pm2_5": 6.4,
+      "aqi_o3": 92.3
+    }
+  ]
+}
+```
+
+The date-only variant returns a compact per-city snapshot (`city_slug`, `date`, `temp_day_c`, `humidity`, `wind_speed_ms`, `aqi`).
+
+## `GET /api/forecast`
+
+48-hour hourly pollen forecast for one city (Ambee v3). Responses are cached server-side for up to 6 hours per city, and upstream fetches stop once the daily Ambee quota is nearly exhausted, in which case the most recent cached rows are served with `stale: true`.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `city`    | ✅        | City slug.  |
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver
+```
+
+```json
+{
+  "city": "denver",
+  "source": "cache",
+  "stale": false,
+  "fetchedAt": "2026-07-10T15:04:11.512Z",
+  "rows": [
+    {
+      "ts": "2026-07-10T16:00:00.000Z",
+      "tz": "America/Denver",
+      "grass": 8,
+      "tree": 3,
+      "weed": 41,
+      "total": 52,
+      "risk_grass": "Low",
+      "risk_tree": "Low",
+      "risk_weed": "Moderate"
+    }
+  ]
+}
+```
+
+`quotaExhausted: true` appears when the daily provider budget blocked a refresh; `rows` may then be stale or empty.
+
 ---
 
 Extend the handlers under `app/api/` if you need additional slices or metrics.

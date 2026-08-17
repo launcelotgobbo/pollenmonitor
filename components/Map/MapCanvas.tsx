@@ -4,17 +4,38 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_VIEW, getStyleUrl } from '@/lib/map';
 import { useEffect, useRef, useState } from 'react';
-import { addStateBoundaries, upsertPollenData } from './pollenLayer';
+import { addStateBoundaries, setPollenTypePaint, upsertPollenData, type PollenType } from './pollenLayer';
 
-export default function MapCanvas({ date }: { date: string }) {
+export default function MapCanvas({
+  date,
+  pollenType = 'total',
+  onDateResolved,
+}: {
+  date: string;
+  pollenType?: PollenType;
+  onDateResolved?: (date: string) => void;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const dateRef = useRef(date);
+  const typeRef = useRef(pollenType);
+  const lastFetchedDateRef = useRef<string | null>(null);
+  const onDateResolvedRef = useRef(onDateResolved);
+
+  useEffect(() => {
+    onDateResolvedRef.current = onDateResolved;
+  }, [onDateResolved]);
 
   useEffect(() => {
     dateRef.current = date;
   }, [date]);
+
+  useEffect(() => {
+    typeRef.current = pollenType;
+    const map = mapRef.current;
+    if (map && mapLoaded) setPollenTypePaint(map, pollenType);
+  }, [pollenType, mapLoaded]);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -50,15 +71,23 @@ export default function MapCanvas({ date }: { date: string }) {
     };
   }, []);
 
-  // Update data when map is ready and/or date changes
+  // Update data when map is ready and/or date changes. An empty date means
+  // "latest": the server resolves it, so the first render doesn't wait on the
+  // available-dates list.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded || !date) return;
-    const url = `/api/map-data?date=${encodeURIComponent(date)}&_=${Date.now()}`;
-    fetch(url, { cache: 'no-store' })
+    if (!map || !mapLoaded) return;
+    // Skip the refetch triggered by the parent adopting the resolved date.
+    if (date && lastFetchedDateRef.current === date) return;
+    const target = date || 'latest';
+    fetch(`/api/map-data?date=${encodeURIComponent(target)}`)
       .then((r) => r.json())
       .then((geojson) => {
-        upsertPollenData(map, geojson, () => dateRef.current);
+        const resolved: string = geojson?.date || date;
+        lastFetchedDateRef.current = resolved || null;
+        if (resolved && !dateRef.current) dateRef.current = resolved;
+        upsertPollenData(map, geojson, () => dateRef.current, typeRef.current);
+        if (!date && resolved) onDateResolvedRef.current?.(resolved);
       })
       .catch(() => {});
   }, [date, mapLoaded]);

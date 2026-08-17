@@ -100,6 +100,93 @@ export async function upsertPollenHourlyBatch(rows: PollenHourlyRow[]) {
   );
 }
 
+export async function upsertPollenForecastBatch(rows: PollenHourlyRow[]) {
+  if (rows.length === 0) return;
+  const byKey = new Map<string, PollenHourlyRow>();
+  for (const row of rows) byKey.set(`${row.city_slug}\u0000${row.ts}`, row);
+  const unique = [...byKey.values()];
+
+  const params: any[] = [];
+  const tuples = unique.map((row, i) => {
+    const total = row.total ?? ((row.grass ?? 0) + (row.tree ?? 0) + (row.weed ?? 0));
+    params.push(
+      row.city_slug,
+      row.ts,
+      row.tz ?? null,
+      row.grass ?? null,
+      row.tree ?? null,
+      row.weed ?? null,
+      total,
+      row.risk_grass ?? null,
+      row.risk_tree ?? null,
+      row.risk_weed ?? null,
+      row.species ?? null,
+    );
+    const base = i * 11;
+    return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},now())`;
+  });
+
+  await q(
+    `INSERT INTO pollen_forecast_hourly (
+        city_slug, ts, tz, grass, tree, weed, total, risk_grass, risk_tree, risk_weed, species, fetched_at
+     ) VALUES ${tuples.join(',')}
+     ON CONFLICT (city_slug, ts)
+     DO UPDATE SET tz = COALESCE(EXCLUDED.tz, pollen_forecast_hourly.tz),
+                   grass = EXCLUDED.grass,
+                   tree = EXCLUDED.tree,
+                   weed = EXCLUDED.weed,
+                   total = EXCLUDED.total,
+                   risk_grass = EXCLUDED.risk_grass,
+                   risk_tree = EXCLUDED.risk_tree,
+                   risk_weed = EXCLUDED.risk_weed,
+                   species = EXCLUDED.species,
+                   fetched_at = now()`,
+    params,
+  );
+}
+
+export type ForecastRow = {
+  ts: string;
+  tz: string | null;
+  grass: number | null;
+  tree: number | null;
+  weed: number | null;
+  total: number | null;
+  risk_grass: string | null;
+  risk_tree: string | null;
+  risk_weed: string | null;
+};
+
+export async function getForecastRows(
+  citySlug: string,
+): Promise<{ rows: ForecastRow[]; fetchedAt: string | null }> {
+  const res = await q<ForecastRow & { fetched_at: string }>(
+    `SELECT ${TS_ISO} AS ts, tz, grass, tree, weed, total, risk_grass, risk_tree, risk_weed,
+            to_char(fetched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS fetched_at
+     FROM pollen_forecast_hourly
+     WHERE city_slug = $1 AND ts >= now() - interval '1 hour'
+     ORDER BY ts ASC`,
+    [citySlug],
+  );
+  let fetchedAt: string | null = null;
+  for (const row of res.rows) {
+    if (!fetchedAt || row.fetched_at > fetchedAt) fetchedAt = row.fetched_at;
+  }
+  return { rows: res.rows.map(({ fetched_at, ...rest }) => rest), fetchedAt };
+}
+
+// Ambee-only calls made today (UTC); used to keep on-demand forecast
+// fetches inside the daily provider quota.
+export async function getAmbeeCallsTodayUTC(): Promise<number> {
+  const res = await q<{ total: string }>(
+    `SELECT COALESCE(SUM(ambee_calls), 0)::text AS total
+     FROM ambee_usage_logs
+     WHERE job NOT LIKE '%openweather%'
+       AND ts >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
+  );
+  return Number(res.rows[0]?.total ?? 0);
+}
+
 export async function logIngest(status: string, details: Record<string, any>) {
   try {
     const json = JSON.stringify(details);

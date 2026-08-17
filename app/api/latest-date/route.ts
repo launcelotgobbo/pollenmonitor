@@ -7,7 +7,10 @@ export async function GET(_req: NextRequest) {
       `SELECT to_char(max(ts) AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date FROM pollen_readings_hourly`,
     );
     const latest = rows[0]?.date || new Date().toISOString().slice(0, 10);
-    return Response.json({ date: latest });
+    return Response.json(
+      { date: latest },
+      { headers: { 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600' } },
+    );
   } catch (e: any) {
     console.error('[latest-date] error:', e);
     return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import DaySnapshot from '@/components/CityDaily/DaySnapshot';
+import Forecast48h from '@/components/CityDaily/Forecast48h';
 import HourlyTable from '@/components/CityDaily/HourlyTable';
 import { useCityDayData } from '@/components/CityDaily/useCityDayData';
 import type { DailySummary, HourlyRow } from '@/components/CityDaily/types';
@@ -63,6 +64,7 @@ export default function CityDailyExplorer({ city, summaries, initialSelected, in
           isLoading={isLoading}
           error={error}
         />
+        <Forecast48h city={city} />
       </section>
     </div>
   );
