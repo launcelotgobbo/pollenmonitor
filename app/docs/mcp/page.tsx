@@ -74,6 +74,16 @@ export default function McpDocsPage() {
         "aggregate": {"type": "string", "enum": ["none", "day"], "default": "none"},
         "limit": {"type": "integer", "default": 20000}
       }
+    },
+    {
+      "id": "pollen-forecast",
+      "kind": "rest",
+      "displayName": "48-hour forecast",
+      "baseUrl": "${baseUrl}/api/forecast",
+      "method": "GET",
+      "query": {
+        "city": {"type": "string", "required": true}
+      }
     }
   ]
 }`}
@@ -97,7 +107,7 @@ npx @modelcontextprotocol/rest-provider serve --config ~/.mcp/pollen-monitor.jso
       <section className="space-y-3 text-sm leading-6 text-slate-600">
         <h2 className="text-xl font-semibold">Tool outputs</h2>
         <p>
-          The provider exposes three tools: <code>pollen-city-hourly</code>, <code>pollen-city-daily</code>, and <code>pollen-range</code>. Each mirrors the REST endpoints described in the
+          The provider exposes four tools: <code>pollen-city-hourly</code>, <code>pollen-city-daily</code>, <code>pollen-range</code>, and <code>pollen-forecast</code>. Each mirrors the REST endpoints described in the
           <Link href="/docs/api" className="ml-1 underline decoration-slate-400 hover:text-slate-700">
             API reference
           </Link>
