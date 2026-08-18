@@ -52,8 +52,22 @@ export function upsertPollenData(
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': severityPaint(type),
-      'circle-radius': 6,
-      'circle-stroke-width': 1,
+      // Grow with zoom, but sub-proportionally (a proportional fit would
+      // double the radius per zoom level); zoom range is clamped to 2.5-10
+      // in MapCanvas.
+      'circle-radius': [
+        'interpolate', ['exponential', 1.3], ['zoom'],
+        2.5, 4.5,
+        4, 6,
+        6, 9,
+        8, 13,
+        10, 18,
+      ],
+      'circle-stroke-width': [
+        'interpolate', ['linear'], ['zoom'],
+        2.5, 1,
+        10, 2,
+      ],
       'circle-stroke-color': '#ffffff',
     },
   } as any);
