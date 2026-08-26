@@ -17,6 +17,12 @@ export const OPENAPI_DOCUMENT = {
     description: 'Human-readable API documentation',
     url: absoluteUrl('/docs/api'),
   },
+  'x-mcp-server': {
+    description: 'Public, read-only Model Context Protocol server.',
+    transport: 'streamable-http',
+    url: absoluteUrl('/mcp'),
+    documentation: absoluteUrl('/docs/mcp'),
+  },
   tags: [
     { name: 'Discovery', description: 'Find supported cities and available observation dates.' },
     { name: 'Pollen', description: 'Retrieve historical and forecast pollen concentrations and risks.' },
@@ -107,7 +113,7 @@ export const OPENAPI_DOCUMENT = {
         operationId: 'getPollen',
         summary: 'Get pollen by city or date',
         description:
-          'Provide city alone for up to 720 daily averages, city and date for hourly readings on that UTC date, or date alone for a compact cross-city summary.',
+          'Provide city alone for up to 720 daily averages, city and date for hourly readings on that UTC date, or date alone for a compact cross-city summary. Unsupported city slugs return 404 with pointers to /api/cities and the MCP list_cities tool.',
         tags: ['Pollen'],
         parameters: [
           { $ref: '#/components/parameters/City' },
@@ -129,6 +135,7 @@ export const OPENAPI_DOCUMENT = {
             },
           },
           '400': { $ref: '#/components/responses/Error' },
+          '404': { $ref: '#/components/responses/Error' },
           '500': { $ref: '#/components/responses/Error' },
         },
       },
@@ -375,13 +382,13 @@ export const OPENAPI_DOCUMENT = {
       },
       DailyPollen: {
         type: 'object',
-        required: ['date', 'avg_tree', 'avg_grass', 'avg_weed', 'avg_total', 'species'],
+        required: ['date', 'tree', 'grass', 'weed', 'total', 'species'],
         properties: {
           date: { $ref: '#/components/schemas/Date' },
-          avg_tree: nullableNumber,
-          avg_grass: nullableNumber,
-          avg_weed: nullableNumber,
-          avg_total: nullableNumber,
+          tree: nullableNumber,
+          grass: nullableNumber,
+          weed: nullableNumber,
+          total: nullableNumber,
           species: { $ref: '#/components/schemas/Species' },
           risk_tree: { $ref: '#/components/schemas/PollenRisk' },
           risk_grass: { $ref: '#/components/schemas/PollenRisk' },

@@ -112,10 +112,10 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
   "rows": [
     {
       "date": "2024-04-14",
-      "avg_tree": 19,
-      "avg_grass": 7,
-      "avg_weed": 2,
-      "avg_total": 28,
+      "tree": 19,
+      "grass": 7,
+      "weed": 2,
+      "total": 28,
       "species": {
         "Tree": { "Oak": 12, "Pine": 7 },
         "Grass": { "Grass": 7 },
@@ -127,6 +127,18 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
       "timezone": "America/Los_Angeles"
     }
   ]
+}
+```
+
+Unsupported city slugs return `404` instead of an ambiguous empty result:
+
+```json
+{
+  "error": "Unsupported city 'atlantis'. Use GET /api/cities or the MCP list_cities tool to choose a supported city.",
+  "code": "UNSUPPORTED_CITY",
+  "city": "atlantis",
+  "supportedCities": "/api/cities",
+  "mcpTool": "list_cities"
 }
 ```
 

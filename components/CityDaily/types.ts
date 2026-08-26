@@ -1,31 +1,7 @@
-import type { PollenRisk } from '@/lib/risk';
-import type { SpeciesBreakdown } from '@/lib/species';
+import type { DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
 
-export type DailySummary = {
-  date: string;
-  avg_tree: number | null;
-  avg_grass: number | null;
-  avg_weed: number | null;
-  avg_total: number | null;
-  timezone: string | null;
-  species: SpeciesBreakdown | null;
-  risk_tree: PollenRisk | null;
-  risk_grass: PollenRisk | null;
-  risk_weed: PollenRisk | null;
-};
-
-export type HourlyRow = {
-  ts: string;
-  tree: number | null;
-  grass: number | null;
-  weed: number | null;
-  total: number | null;
-  risk_tree: PollenRisk | null;
-  risk_grass: PollenRisk | null;
-  risk_weed: PollenRisk | null;
-  timezone: string | null;
-  species: unknown;
-};
+export type DailySummary = DailyPollenRow;
+export type HourlyRow = HourlyPollenRow;
 
 export type WeatherDaily = {
   date: string;
