@@ -138,7 +138,7 @@ export const OPENAPI_DOCUMENT = {
         operationId: 'getPollenRange',
         summary: 'Get pollen over a custom time range',
         description:
-          'Returns hourly observations by default. Set aggregate=day for daily averages grouped by city. The upper time bound is exclusive.',
+          'Returns a flat, consistent row shape for hourly observations or daily averages. Set aggregate=day for daily values. Unknown aggregate values return 400. The upper time bound is exclusive.',
         tags: ['Pollen'],
         parameters: [
           {
@@ -438,37 +438,37 @@ export const OPENAPI_DOCUMENT = {
           aggregate: { type: 'string', enum: ['none', 'day'] },
           rows: {
             type: 'array',
-            items: {
-              oneOf: [
-                { $ref: '#/components/schemas/HourlyPollenRangeRow' },
-                { $ref: '#/components/schemas/AggregatedCityPollen' },
-              ],
-            },
+            items: { $ref: '#/components/schemas/PollenRangeRow' },
           },
         },
       },
-      HourlyPollenRangeRow: {
-        allOf: [
-          { $ref: '#/components/schemas/HourlyPollen' },
-          {
-            type: 'object',
-            required: ['city_slug', 'tz'],
-            properties: {
-              city_slug: { type: 'string' },
-              tz: nullableString,
-            },
-          },
-        ],
-      },
-      AggregatedCityPollen: {
+      PollenRangeRow: {
         type: 'object',
-        required: ['city', 'data'],
+        required: [
+          'city',
+          'periodStart',
+          'tree',
+          'grass',
+          'weed',
+          'total',
+          'timezone',
+          'species',
+          'risk_tree',
+          'risk_grass',
+          'risk_weed',
+        ],
         properties: {
           city: { type: 'string' },
-          data: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/DailyPollen' },
-          },
+          periodStart: { $ref: '#/components/schemas/DateTime' },
+          tree: nullableNumber,
+          grass: nullableNumber,
+          weed: nullableNumber,
+          total: nullableNumber,
+          timezone: nullableString,
+          species: { $ref: '#/components/schemas/Species' },
+          risk_tree: { $ref: '#/components/schemas/PollenRisk' },
+          risk_grass: { $ref: '#/components/schemas/PollenRisk' },
+          risk_weed: { $ref: '#/components/schemas/PollenRisk' },
         },
       },
       MapDay: {

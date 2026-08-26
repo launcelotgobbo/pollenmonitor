@@ -136,10 +136,10 @@ GET ${baseUrl}/api/latest-date`}
 {`GET ${baseUrl}/api/pollen-range?from=2024-04-01&to=2024-04-15&city=denver&aggregate=day`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Use <code>/api/pollen-range</code> for arbitrary windows. Supply <code>from</code> and <code>to</code>, optionally filter by <code>city</code>, and set <code>aggregate=day</code> for grouped summaries.
+          Use <code>/api/pollen-range</code> for arbitrary windows. Supply <code>from</code> and <code>to</code>, optionally filter by <code>city</code>, and set <code>aggregate=day</code> for daily summaries. Hourly and daily modes return the same flat row shape.
         </p>
         <p className="text-xs leading-5 text-slate-500">
-          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code> (comma-separated slugs), <code>aggregate</code> (either <code>none</code> or <code>day</code>), <code>limit</code> (1–50 000, defaults to 20 000).
+          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code> (comma-separated slugs), <code>aggregate</code> (strictly <code>none</code> or <code>day</code>; unknown values return 400), <code>limit</code> (1–50 000, defaults to 20 000).
         </p>
       </section>
 

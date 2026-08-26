@@ -1,43 +1,30 @@
 import { withNabRisk, type PollenRisk } from '@/lib/risk';
-import { addSpecies, averageSpecies, type SpeciesAccumulator, type SpeciesBreakdown } from '@/lib/species';
 
-export type HourlyRow = {
+export type PollenRangeAggregate = 'none' | 'day';
+
+export type PollenRangeDbRow = {
   city_slug: string;
-  ts: string;
+  period_start: string;
   tree: number | null;
   grass: number | null;
   weed: number | null;
-  tz: string | null;
+  total: number | null;
+  timezone: string | null;
   species?: unknown;
 };
 
-export type AggregatedDay = {
-  date: string;
-  avg_tree: number | null;
-  avg_grass: number | null;
-  avg_weed: number | null;
-  avg_total: number | null;
+export type PollenRangeRow = {
+  city: string;
+  periodStart: string;
+  tree: number | null;
+  grass: number | null;
+  weed: number | null;
+  total: number | null;
   timezone: string | null;
-  species: SpeciesBreakdown | null;
+  species: unknown;
   risk_tree: PollenRisk | null;
   risk_grass: PollenRisk | null;
   risk_weed: PollenRisk | null;
-};
-
-export type AggregatedCityDays = { city: string; data: AggregatedDay[] };
-
-type InternalDay = {
-  date: string;
-  timezone: string | null;
-  treeSum: number;
-  treeCount: number;
-  grassSum: number;
-  grassCount: number;
-  weedSum: number;
-  weedCount: number;
-  totalSum: number;
-  totalCount: number;
-  speciesAccumulator: SpeciesAccumulator;
 };
 
 export function normalizeCityList(cityParam: string | null): string[] {
@@ -69,95 +56,33 @@ export function parseDate(value: string | null, label: string): Date {
   return date;
 }
 
-export function aggregateDaily(rows: HourlyRow[]): AggregatedCityDays[] {
-  const byCity = new Map<string, Map<string, InternalDay>>();
+export function parseAggregate(value: string | null): PollenRangeAggregate {
+  if (!value || value === 'none') return 'none';
+  if (value === 'day') return 'day';
+  throw new ValidationError("Invalid parameter 'aggregate': expected 'none' or 'day'");
+}
 
-  const bump = (city: string, day: string, row: HourlyRow) => {
-    const cityMap = byCity.get(city) ?? new Map<string, InternalDay>();
-    byCity.set(city, cityMap);
-    const existing = cityMap.get(day) ?? {
-      date: day,
-      timezone: row.tz ?? null,
-      treeSum: 0,
-      treeCount: 0,
-      grassSum: 0,
-      grassCount: 0,
-      weedSum: 0,
-      weedCount: 0,
-      totalSum: 0,
-      totalCount: 0,
-      speciesAccumulator: new Map(),
+export function toPollenRangeRows(rows: PollenRangeDbRow[]): PollenRangeRow[] {
+  return rows.map((row) => {
+    const species = row.species ?? null;
+    const classified = withNabRisk({
+      tree: row.tree,
+      grass: row.grass,
+      weed: row.weed,
+      species,
+    });
+    return {
+      city: row.city_slug,
+      periodStart: row.period_start,
+      tree: row.tree,
+      grass: row.grass,
+      weed: row.weed,
+      total: row.total,
+      timezone: row.timezone,
+      species,
+      risk_tree: classified.risk_tree,
+      risk_grass: classified.risk_grass,
+      risk_weed: classified.risk_weed,
     };
-
-    if (typeof row.tree === 'number') {
-      existing.treeSum += row.tree;
-      existing.treeCount += 1;
-    }
-    if (typeof row.grass === 'number') {
-      existing.grassSum += row.grass;
-      existing.grassCount += 1;
-    }
-    if (typeof row.weed === 'number') {
-      existing.weedSum += row.weed;
-      existing.weedCount += 1;
-    }
-
-    const hasAnyValue =
-      typeof row.tree === 'number' || typeof row.grass === 'number' || typeof row.weed === 'number';
-    const total =
-      (typeof row.tree === 'number' ? row.tree : 0) +
-      (typeof row.grass === 'number' ? row.grass : 0) +
-      (typeof row.weed === 'number' ? row.weed : 0);
-    if (hasAnyValue) {
-      existing.totalSum += total;
-      existing.totalCount += 1;
-    }
-
-    if (!existing.timezone && row.tz) {
-      existing.timezone = row.tz;
-    }
-    addSpecies(existing.speciesAccumulator, row.species);
-
-    cityMap.set(day, existing);
-  };
-
-  for (const row of rows) {
-    const city = row.city_slug;
-    const ts = row.ts;
-    if (!city || !ts) continue;
-    const day = ts.slice(0, 10);
-    if (!day) continue;
-    bump(city, day, row);
-  }
-
-  const result: AggregatedCityDays[] = [];
-  for (const [city, dayMap] of byCity.entries()) {
-    const data = Array.from(dayMap.values())
-      .map((entry) => {
-        const values = {
-          tree: entry.treeCount > 0 ? Math.round(entry.treeSum / entry.treeCount) : null,
-          grass: entry.grassCount > 0 ? Math.round(entry.grassSum / entry.grassCount) : null,
-          weed: entry.weedCount > 0 ? Math.round(entry.weedSum / entry.weedCount) : null,
-          species: averageSpecies(entry.speciesAccumulator),
-        };
-        const classified = withNabRisk(values);
-        return {
-          date: entry.date,
-          avg_tree: values.tree,
-          avg_grass: values.grass,
-          avg_weed: values.weed,
-          avg_total: entry.totalCount > 0 ? Math.round(entry.totalSum / entry.totalCount) : null,
-          timezone: entry.timezone,
-          species: values.species,
-          risk_tree: classified.risk_tree,
-          risk_grass: classified.risk_grass,
-          risk_weed: classified.risk_weed,
-        };
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    result.push({ city, data });
-  }
-
-  return result.sort((a, b) => a.city.localeCompare(b.city, 'en', { sensitivity: 'base' }));
+  });
 }

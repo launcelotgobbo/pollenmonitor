@@ -7,6 +7,13 @@ function secureEquals(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+export function isBearerAuthorized(req: Request, expected: string): boolean {
+  if (!expected) return false;
+  const authorization = req.headers.get('authorization') || '';
+  const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  return Boolean(bearer) && secureEquals(bearer, expected);
+}
+
 /**
  * Shared auth for operator-only endpoints. Tokens are read from headers only:
  * query strings end up in request logs, browser history, and proxy logs.
@@ -18,9 +25,7 @@ export function isIngestAuthorized(req: Request): boolean {
   const header = req.headers.get('x-ingest-token');
   if (header && secureEquals(header, expected)) return true;
 
-  const authorization = req.headers.get('authorization') || '';
-  const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  return Boolean(bearer) && secureEquals(bearer, expected);
+  return isBearerAuthorized(req, expected);
 }
 
 export function unauthorized() {

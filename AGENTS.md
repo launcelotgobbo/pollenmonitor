@@ -57,14 +57,14 @@
 - Manual ingest (hourly Ambee):
   - Local: `curl -X POST -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest"`
   - Options: `?city=slug` to target one city, `?hours=48` to adjust window, `?dry=true` for a dry run.
-- Cron (Vercel): daily function call to `/api/cron/daily-ingest` (already wired via `vercel.json`).
+- Cron (Vercel): daily ingest at 1:00 AM `America/Los_Angeles` (DST-aware). `vercel.json` invokes at 08:00 and 09:00 UTC; the route skips whichever invocation is not 1:00 AM Pacific.
   - Auth: set `CRON_SECRET` in every environment so Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual triggers use a header, never a query string: `curl -H "x-ingest-token: $INGEST_TOKEN" ".../api/cron/daily-ingest"`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration. Stack traces stay in function logs and are not persisted.
 - Inspect runs: `curl -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest-logs"` (operator-only, not a public endpoint).
 - Local git hook: run `npm run setup:hooks` once to enforce `npm run build` on each commit (set `SKIP_PRECOMMIT_BUILD=1` to bypass when needed).
 
 ## Cron & Logging
-- Scheduling: use Vercel Cron to call `/api/cron/daily-ingest?days=5` (already configured) and optionally ad-hoc `/api/ingest` triggers for backfills.
+- Scheduling: Vercel Cron calls `/api/cron/daily-ingest` at both UTC offsets needed for 1:00 AM Pacific; optionally use ad-hoc `/api/ingest` triggers for backfills.
 - Required logs: record both success and failure for each run.
   - Structured console logs (visible in Vercel Function Logs), e.g., `{ level: 'info'|'error', job: 'ingest', status, count, ts }`.
   - Persistence: `ingest_logs` captures status + summary JSON.

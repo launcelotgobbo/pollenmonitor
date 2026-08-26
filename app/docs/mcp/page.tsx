@@ -14,9 +14,10 @@ export default function McpDocsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12 text-slate-900">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">MCP Server Guide</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Hosted MCP Server</h1>
         <p className="text-sm text-slate-600">
-          Wrap the pollen monitor API endpoints as an MCP REST provider so compatible assistants can answer pollen questions in real time.
+          Connect an MCP-compatible assistant directly to Pollen Monitor&apos;s public,
+          read-only Streamable HTTP endpoint.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href="/docs/api" className={badge}>
@@ -29,95 +30,49 @@ export default function McpDocsPage() {
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Example provider config</h2>
+        <h2 className="text-xl font-semibold">Connect directly</h2>
         <p className="text-sm leading-6 text-slate-600">
-          Use the <code>@modelcontextprotocol/rest-provider</code> (or any compatible REST transport) and add the following configuration. Replace
-          <code>{baseUrl}</code> if you run the server on a different host.
+          Clients that support remote Streamable HTTP servers need only this URL. No local
+          provider installation is required.
         </p>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
 {`{
-  "$schema": "https://modelcontextprotocol.org/schemas/task-config.json",
-  "name": "pollen-monitor",
-  "version": "1.0.0",
-  "description": "US pollen observations",
-  "endpoints": [
-    {
-      "id": "pollen-city-hourly",
-      "kind": "rest",
-      "displayName": "City hourly pollen",
-      "baseUrl": "${baseUrl}/api/pollen",
-      "method": "GET",
-      "query": {
-        "city": {"type": "string", "required": true},
-        "date": {"type": "string", "required": true}
-      }
-    },
-    {
-      "id": "pollen-city-daily",
-      "kind": "rest",
-      "displayName": "City daily averages",
-      "baseUrl": "${baseUrl}/api/pollen",
-      "method": "GET",
-      "query": {
-        "city": {"type": "string", "required": true}
-      }
-    },
-    {
-      "id": "pollen-range",
-      "kind": "rest",
-      "displayName": "Custom pollen range",
-      "baseUrl": "${baseUrl}/api/pollen-range",
-      "method": "GET",
-      "query": {
-        "from": {"type": "string", "required": true},
-        "to": {"type": "string", "required": true},
-        "city": {"type": "string"},
-        "aggregate": {"type": "string", "enum": ["none", "day"], "default": "none"},
-        "limit": {"type": "integer", "default": 20000}
-      }
-    },
-    {
-      "id": "pollen-forecast",
-      "kind": "rest",
-      "displayName": "48-hour forecast",
-      "baseUrl": "${baseUrl}/api/forecast",
-      "method": "GET",
-      "query": {
-        "city": {"type": "string", "required": true}
-      }
-    }
-  ]
+  "pollen-monitor": {
+    "url": "${baseUrl}/mcp"
+  }
 }`}
         </pre>
       </section>
 
       <section className="space-y-3 text-sm leading-6 text-slate-600">
-        <h2 className="text-xl font-semibold">Running the provider</h2>
-        <ol className="list-decimal space-y-2 pl-5">
-          <li>Save the JSON as <code>~/.mcp/pollen-monitor.json</code>.</li>
-          <li>
-            Start the provider:
-            <pre className="mt-2 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100 shadow-inner">
-npx @modelcontextprotocol/rest-provider serve --config ~/.mcp/pollen-monitor.json
-            </pre>
-          </li>
-          <li>Connect your MCP-compatible assistant to the running provider.</li>
-        </ol>
-      </section>
-
-      <section className="space-y-3 text-sm leading-6 text-slate-600">
-        <h2 className="text-xl font-semibold">Tool outputs</h2>
+        <h2 className="text-xl font-semibold">Available tools</h2>
         <p>
-          The provider exposes four tools: <code>pollen-city-hourly</code>, <code>pollen-city-daily</code>, <code>pollen-range</code>, and <code>pollen-forecast</code>. Each mirrors the REST endpoints described in the
+          The server exposes <code>list_cities</code>, <code>get_pollen</code>,{' '}
+          <code>get_pollen_range</code>, <code>get_forecast</code>, and{' '}
+          <code>get_weather</code>. Inputs are validated and bounded; every tool is
+          read-only, and forecasts are served from the existing cache without consuming
+          provider quota. Responses mirror the
           <Link href="/docs/api" className="ml-1 underline decoration-slate-400 hover:text-slate-700">
             API reference
           </Link>
-          . Responses include the same fields as the HTTP endpoints, making them easy to feed into downstream reasoning.
+          .
         </p>
       </section>
 
+      <section className="space-y-3 text-sm leading-6 text-slate-600">
+        <h2 className="text-xl font-semibold">Older clients</h2>
+        <p>
+          For clients that support only local stdio servers, bridge the hosted endpoint with
+          <code className="ml-1">mcp-remote</code>:
+        </p>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100 shadow-inner">
+{`npx -y mcp-remote ${baseUrl}/mcp`}
+        </pre>
+      </section>
+
       <footer className="border-t border-slate-200 pt-6 text-xs text-slate-500">
-        Need additional endpoints? Extend <code>app/api/</code> and add matching entries in your MCP configuration.
+        The MCP endpoint is public and requires no credentials. Use the REST API directly
+        when MCP is not available.
       </footer>
     </div>
   );
