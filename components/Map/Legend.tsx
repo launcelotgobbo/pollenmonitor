@@ -21,6 +21,14 @@ export default function Legend() {
           </div>
         ))}
       </div>
+      <a
+        href="https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 block text-[11px] text-slate-300 underline decoration-slate-500 underline-offset-2 hover:text-white"
+      >
+        NAB category thresholds
+      </a>
     </div>
   );
 }

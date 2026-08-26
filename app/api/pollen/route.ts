@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { query, TS_ISO } from '@/lib/db';
+import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
+import { withNabRisk } from '@/lib/risk';
 
 function utcDayWindow(date: string): { dayStart: string; dayEnd: string } {
   const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
@@ -25,16 +26,13 @@ export async function GET(req: NextRequest) {
          ORDER BY ts ASC`,
         [city, dayStart, dayEnd],
       );
-      const out = rows.map((r: any) => ({
+      const out = rows.map((r: any) => withNabRisk({
         ts: r.ts,
         tree: r.tree ?? null,
         grass: r.grass ?? null,
         weed: r.weed ?? null,
         total: (r.grass ?? 0) + (r.tree ?? 0) + (r.weed ?? 0),
         species: r.species ?? null,
-        risk_tree: r.risk_tree ?? null,
-        risk_grass: r.risk_grass ?? null,
-        risk_weed: r.risk_weed ?? null,
         timezone: r.timezone ?? null,
       }));
       return Response.json({ city, date, rows: out });
@@ -42,7 +40,26 @@ export async function GET(req: NextRequest) {
     if (city && !date) {
       // Daily averages over the city's history (most recent 720 days)
       const { rows } = await query<any>(
-        `SELECT to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+        `WITH recent_days AS MATERIALIZED (
+           SELECT (ts AT TIME ZONE 'UTC')::date AS day
+           FROM pollen_readings_hourly
+           WHERE city_slug = $1
+           GROUP BY 1
+           ORDER BY 1 DESC
+           LIMIT 720
+         ),
+         filtered AS MATERIALIZED (
+           SELECT reading.ts, reading.tree, reading.grass, reading.weed, reading.tz, reading.species,
+                  (reading.ts AT TIME ZONE 'UTC')::date AS day
+           FROM pollen_readings_hourly AS reading
+           WHERE reading.city_slug = $1
+             AND reading.ts >= (
+               SELECT min(day)::timestamp AT TIME ZONE 'UTC'
+               FROM recent_days
+             )
+         ),
+         daily AS (
+           SELECT day::text AS date,
                 round(avg(tree))::int AS avg_tree,
                 round(avg(grass))::int AS avg_grass,
                 round(avg(weed))::int AS avg_weed,
@@ -51,14 +68,50 @@ export async function GET(req: NextRequest) {
                   ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
                 END))::int AS avg_total,
                 max(tz) AS timezone
-         FROM pollen_readings_hourly
-         WHERE city_slug = $1
-         GROUP BY 1
-         ORDER BY date DESC
-         LIMIT 720`,
+           FROM filtered
+           GROUP BY 1
+         ),
+         species_values AS (
+           SELECT filtered.day::text AS date,
+                  category.key AS category,
+                  item.key AS species_name,
+                  round(avg(item.value::numeric))::int AS value
+           FROM filtered
+           CROSS JOIN LATERAL ${numericSpeciesEntriesSql('filtered.species')}
+           GROUP BY 1, 2, 3
+         ),
+         species_categories AS (
+           SELECT date, category, jsonb_object_agg(species_name, value) AS values
+           FROM species_values
+           GROUP BY 1, 2
+         ),
+         daily_species AS (
+           SELECT date, jsonb_object_agg(category, values) AS species
+           FROM species_categories
+           GROUP BY 1
+         )
+         SELECT daily.*, daily_species.species
+         FROM daily
+         LEFT JOIN daily_species USING (date)
+         ORDER BY date DESC`,
         [city],
       );
-      return Response.json({ city, rows });
+      const out = rows.map((row: any) => {
+        const classified = withNabRisk({
+          tree: row.avg_tree,
+          grass: row.avg_grass,
+          weed: row.avg_weed,
+          species: row.species ?? null,
+        });
+        return {
+          ...row,
+          species: row.species ?? null,
+          risk_tree: classified.risk_tree,
+          risk_grass: classified.risk_grass,
+          risk_weed: classified.risk_weed,
+        };
+      });
+      return Response.json({ city, rows: out });
     }
     if (date && !city) {
       // One summary per city for that day: latest reading count + max weed

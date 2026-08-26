@@ -36,7 +36,7 @@ export default function HourlyTable({ hourlyRows, timezone, selectedDate, isLoad
                 <th className="px-4 py-3 text-left">Time ({timezone})</th>
                 <th className="px-4 py-3 text-right">Tree</th>
                 <th className="px-4 py-3 text-right">Grass</th>
-                <th className="px-4 py-3 text-right">Weed</th>
+                <th className="px-4 py-3 text-right">Ragweed</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3 text-left">Risk</th>
               </tr>
@@ -60,7 +60,7 @@ export default function HourlyTable({ hourlyRows, timezone, selectedDate, isLoad
                       <div className="flex max-w-[18rem] flex-wrap gap-2">
                         <RiskBadge label="Tree" value={row.risk_tree} />
                         <RiskBadge label="Grass" value={row.risk_grass} />
-                        <RiskBadge label="Weed" value={row.risk_weed} />
+                        <RiskBadge label="Ragweed" value={row.risk_weed} />
                       </div>
                     </td>
                   </tr>

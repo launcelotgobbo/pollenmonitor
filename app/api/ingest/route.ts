@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { parseUtcDate } from '@/lib/date';
 import { logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
+import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
@@ -12,19 +14,8 @@ function toISODateTime(input: Date) {
   return input.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function parseUTC(value: string): Date | null {
-  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(value)
-    ? value
-    : `${value.replace(' ', 'T')}Z`;
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 export async function POST(req: NextRequest) {
-  const token = req.headers.get('x-ingest-token');
-  if (!process.env.INGEST_TOKEN || token !== process.env.INGEST_TOKEN) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  }
+  if (!isIngestAuthorized(req)) return unauthorized();
 
   const { searchParams } = new URL(req.url);
   const cityFilter = searchParams.get('city');
@@ -55,8 +46,8 @@ export async function POST(req: NextRequest) {
     fromISO = toISODateTime(start);
   }
 
-  const fromDate = parseUTC(fromISO);
-  const toDate = parseUTC(toISO);
+  const fromDate = parseUtcDate(fromISO);
+  const toDate = parseUtcDate(toISO);
   if (!fromDate || !toDate || fromDate >= toDate) {
     return new Response(
       JSON.stringify({ error: 'Invalid window: provide parseable from/to (or date) with from before to' }),
@@ -116,12 +107,12 @@ export async function POST(req: NextRequest) {
       error: failure.error,
     });
     await logIngest('failure', failure);
-    return new Response(JSON.stringify(failure), { status: 500 });
+    return Response.json(failure, { status: 500 });
   }
 
   const cities = allCities.filter((c) => (cityFilter ? c.slug === cityFilter : true));
   if (!cities.length) {
-    return new Response(JSON.stringify({ error: `No cities matched request for filter ${cityFilter}` }), { status: 400 });
+    return Response.json({ error: `No cities matched request for filter ${cityFilter}` }, { status: 400 });
   }
 
   console.log('[ingest manual] start', {

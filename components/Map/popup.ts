@@ -1,4 +1,5 @@
-import { pickHigherRisk } from '@/lib/risk';
+import type { DaySummary } from '@/lib/mapData';
+import { pickHigherRisk, type PollenRisk } from '@/lib/risk';
 
 export type SeriesRow = {
   ts?: string | null;
@@ -6,22 +7,15 @@ export type SeriesRow = {
   tree?: number | null;
   grass?: number | null;
   weed?: number | null;
-  risk_tree?: string | null;
-  risk_grass?: string | null;
-  risk_weed?: string | null;
+  ragweed?: number | null;
+  risk_tree?: PollenRisk | null;
+  risk_grass?: PollenRisk | null;
+  risk_weed?: PollenRisk | null;
+  risk_ragweed?: PollenRisk | null;
   timezone?: string | null;
 };
 
-export type DailySummary = {
-  date: string;
-  tree: number | null;
-  grass: number | null;
-  weed: number | null;
-  risk_tree: string | null;
-  risk_grass: string | null;
-  risk_weed: string | null;
-  timezone: string | null;
-};
+export type DailySummary = DaySummary;
 
 const formatRiskLabel = (value: unknown) => {
   if (!value) return '—';
@@ -88,18 +82,25 @@ export const aggregateSeriesByDate = (rows: SeriesRow[]): DailySummary[] => {
       tree: null,
       grass: null,
       weed: null,
+      ragweed: null,
       risk_tree: null,
       risk_grass: null,
       risk_weed: null,
+      risk_ragweed: null,
       timezone: row.timezone ?? null,
     };
 
     existing.tree = bumpMax(existing.tree, row.tree ?? null);
     existing.grass = bumpMax(existing.grass, row.grass ?? null);
     existing.weed = bumpMax(existing.weed, row.weed ?? null);
+    existing.ragweed = bumpMax(existing.ragweed, row.ragweed ?? row.weed ?? null);
     existing.risk_tree = pickHigherRisk(existing.risk_tree, row.risk_tree ?? null);
     existing.risk_grass = pickHigherRisk(existing.risk_grass, row.risk_grass ?? null);
     existing.risk_weed = pickHigherRisk(existing.risk_weed, row.risk_weed ?? null);
+    existing.risk_ragweed = pickHigherRisk(
+      existing.risk_ragweed,
+      row.risk_ragweed ?? row.risk_weed ?? null,
+    );
     existing.timezone = existing.timezone || row.timezone || null;
 
     map.set(dateKey, existing);
@@ -127,9 +128,11 @@ export const buildPopupHtml = (feature: any, fallbackDate: string) => {
         tree: properties.tree ?? null,
         grass: properties.grass ?? null,
         weed: properties.weed ?? null,
+        ragweed: properties.ragweed ?? properties.weed ?? null,
         risk_tree: properties.risk_tree ?? null,
         risk_grass: properties.risk_grass ?? null,
         risk_weed: properties.risk_weed ?? null,
+        risk_ragweed: properties.risk_ragweed ?? properties.risk_weed ?? null,
         timezone: properties.timezone ?? null,
       }];
 
@@ -141,9 +144,11 @@ export const buildPopupHtml = (feature: any, fallbackDate: string) => {
       tree: properties.tree ?? null,
       grass: properties.grass ?? null,
       weed: properties.weed ?? null,
+      ragweed: properties.ragweed ?? properties.weed ?? null,
       risk_tree: properties.risk_tree ?? null,
       risk_grass: properties.risk_grass ?? null,
       risk_weed: properties.risk_weed ?? null,
+      risk_ragweed: properties.risk_ragweed ?? properties.risk_weed ?? null,
       timezone: properties.timezone ?? null,
     });
   }
@@ -171,7 +176,7 @@ export const buildPopupHtml = (feature: any, fallbackDate: string) => {
         + `<td style='padding:2px 6px;color:${color}'>${dateCell}</td>`
         + `<td style='padding:2px 6px;text-align:right;color:${color}'>${formatCountHtml(row.tree)}</td>`
         + `<td style='padding:2px 6px;text-align:right;color:${color}'>${formatCountHtml(row.grass)}</td>`
-        + `<td style='padding:2px 6px;text-align:right;color:${color}'>${formatCountHtml(row.weed)}</td>`
+        + `<td style='padding:2px 6px;text-align:right;color:${color}'>${formatCountHtml(row.ragweed ?? row.weed)}</td>`
         + `</tr>`;
     })
     .join('');
@@ -182,7 +187,7 @@ export const buildPopupHtml = (feature: any, fallbackDate: string) => {
       + `<th style='text-align:left;padding:2px 6px;'>Date</th>`
       + `<th style='text-align:right;padding:2px 6px;'>Tree (max)</th>`
       + `<th style='text-align:right;padding:2px 6px;'>Grass (max)</th>`
-      + `<th style='text-align:right;padding:2px 6px;'>Weed (max)</th>`
+      + `<th style='text-align:right;padding:2px 6px;'>Ragweed (max)</th>`
       + `</tr></thead>`
       + `<tbody>${tableRows}</tbody>`
       + `</table>`
@@ -191,20 +196,25 @@ export const buildPopupHtml = (feature: any, fallbackDate: string) => {
   const riskSource = focusedRow || properties;
   const rt = formatRiskLabel((riskSource as any)?.risk_tree ?? properties.risk_tree);
   const rg = formatRiskLabel((riskSource as any)?.risk_grass ?? properties.risk_grass);
-  const rw = formatRiskLabel((riskSource as any)?.risk_weed ?? properties.risk_weed);
+  const rw = formatRiskLabel(
+    (riskSource as any)?.risk_ragweed
+      ?? (riskSource as any)?.risk_weed
+      ?? properties.risk_ragweed
+      ?? properties.risk_weed,
+  );
   const hasRisk = [rt, rg, rw].some((value) => value !== '—');
   const riskLine = hasRisk
     ? `<div style='margin-top:6px;font-size:12px;color:#424242;line-height:1.3;'>`
       + `<div><strong>Risk</strong></div>`
       + `<div>Tree: ${rt}</div>`
       + `<div>Grass: ${rg}</div>`
-      + `<div>Weed: ${rw}</div>`
+      + `<div>Ragweed: ${rw}</div>`
       + `</div>`
     : '';
 
   const timezoneNote = timezone ? `${tzLabel} (${timezone})` : 'UTC';
   const unitsLine = `<div style='margin-top:6px;font-size:11px;color:#757575;line-height:1.3;'>`
-    + `Daily maxima shown in particles/m³. Dates reflect ${timezoneNote}.`
+    + `Daily maxima shown in grains/m³. Dates reflect ${timezoneNote}.`
     + `</div>`;
 
   return `<div style='font-size:12px;line-height:1.4;max-width:240px;'>`

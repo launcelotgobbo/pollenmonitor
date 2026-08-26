@@ -86,7 +86,7 @@ test('ambeeHourlyRange maps the v3 response shape', async () => {
   assert.equal(first.weed, 0);
   assert.equal(first.risk_tree, 'Moderate');
   assert.equal(first.risk_grass, 'Low');
-  assert.equal(first.risk_weed, 'Low');
+  assert.equal(first.risk_weed, 'None');
   assert.deepEqual(first.species?.Tree, { Oak: 40, Pine: 38 });
 
   assert.equal(second.ts, new Date(1783508400 * 1000).toISOString());

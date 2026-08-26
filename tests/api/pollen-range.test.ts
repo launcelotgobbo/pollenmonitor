@@ -29,9 +29,6 @@ test('aggregateDaily groups hourly rows per city and day', () => {
       tree: 10,
       grass: 5,
       weed: 0,
-      risk_tree: 'low',
-      risk_grass: 'low',
-      risk_weed: null,
       tz: 'America/Denver',
     },
     {
@@ -40,9 +37,6 @@ test('aggregateDaily groups hourly rows per city and day', () => {
       tree: 20,
       grass: 0,
       weed: 2,
-      risk_tree: 'moderate',
-      risk_grass: null,
-      risk_weed: 'low',
       tz: 'America/Denver',
     },
     {
@@ -51,9 +45,6 @@ test('aggregateDaily groups hourly rows per city and day', () => {
       tree: null,
       grass: null,
       weed: null,
-      risk_tree: null,
-      risk_grass: null,
-      risk_weed: null,
       tz: 'America/Denver',
     },
     {
@@ -62,9 +53,6 @@ test('aggregateDaily groups hourly rows per city and day', () => {
       tree: 5,
       grass: 3,
       weed: 1,
-      risk_tree: 'low',
-      risk_grass: 'low',
-      risk_weed: 'low',
       tz: 'America/Los_Angeles',
     },
   ];

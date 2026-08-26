@@ -1,15 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-
-type DailySummary = {
-  date: string;
-  avg_tree: number | null;
-  avg_grass: number | null;
-  avg_weed: number | null;
-  avg_total: number | null;
-  timezone: string | null;
-};
+import type { DailySummary } from '@/components/CityDaily/types';
 
 type Props = {
   days: DailySummary[];
@@ -77,7 +69,7 @@ export default function CityDailySummaryList({ days, selected, onSelect }: Props
                 <p className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
                   {formatDateLabel(day.date)}
                 </p>
-                <p className="text-[11px] text-slate-500">Avg total {formatValue(day.avg_total)} particles/m³</p>
+                <p className="text-[11px] text-slate-500">Avg total {formatValue(day.avg_total)} grains/m³</p>
               </div>
               <span className="text-xs font-semibold text-slate-400">{isSelected ? 'Viewing' : 'Select'}</span>
             </div>
@@ -95,7 +87,7 @@ export default function CityDailySummaryList({ days, selected, onSelect }: Props
                 </dd>
               </div>
               <div className="space-y-1">
-                <dt className="font-medium uppercase tracking-wide text-slate-400">Weed</dt>
+                <dt className="font-medium uppercase tracking-wide text-slate-400">Ragweed</dt>
                 <dd className={`text-sm font-semibold ${isSelected ? 'text-amber-700' : 'text-slate-700'}`}>
                   {formatValue(day.avg_weed)}
                 </dd>

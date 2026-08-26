@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { formatNumeric, riskBadgeClass } from './format';
-import { pickHigherRisk } from '@/lib/risk';
+import { pickHigherRisk, type PollenRisk } from '@/lib/risk';
 
 type ForecastRow = {
   ts: string;
@@ -11,9 +11,9 @@ type ForecastRow = {
   tree: number | null;
   weed: number | null;
   total: number | null;
-  risk_grass: string | null;
-  risk_tree: string | null;
-  risk_weed: string | null;
+  risk_grass: PollenRisk | null;
+  risk_tree: PollenRisk | null;
+  risk_weed: PollenRisk | null;
 };
 
 type ForecastResponse = {
@@ -116,7 +116,7 @@ export default function Forecast48h({ city }: { city: string }) {
                   <th className="px-4 py-2">Local time</th>
                   <th className="px-4 py-2 text-right">Tree</th>
                   <th className="px-4 py-2 text-right">Grass</th>
-                  <th className="px-4 py-2 text-right">Weed</th>
+                  <th className="px-4 py-2 text-right">Ragweed</th>
                   <th className="px-4 py-2 text-right">Total</th>
                 </tr>
               </thead>

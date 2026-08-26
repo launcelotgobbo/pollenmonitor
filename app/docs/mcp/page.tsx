@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata = {
   title: 'MCP Server Guide',
@@ -9,7 +10,7 @@ const badge =
   'inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-300 hover:text-slate-900';
 
 export default function McpDocsPage() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://pollenmonitor.dev';
+  const baseUrl = SITE_URL;
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12 text-slate-900">
       <header className="space-y-2">

@@ -3,10 +3,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
 import dotenv from 'dotenv';
-
-const { Pool } = pg;
+import { Pool } from 'pg';
+import { createPostgresPoolConfig } from '@/lib/postgres-config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -14,16 +13,10 @@ const root = path.resolve(__dirname, '..');
 dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config();
 async function main() {
-  let conn = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
-  if (!conn) {
+  if (!process.env.POSTGRES_URL_NON_POOLING && !process.env.POSTGRES_URL) {
     throw new Error('Set POSTGRES_URL (or POSTGRES_URL_NON_POOLING)');
   }
-  if (/sslmode=/i.test(conn)) {
-    conn = conn.replace(/sslmode=[^&]+/i, 'sslmode=no-verify');
-  } else {
-    conn += (conn.includes('?') ? '&' : '?') + 'sslmode=no-verify';
-  }
-  const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false } });
+  const pool = new Pool(createPostgresPoolConfig());
   const migDir = path.join(root, 'migrations');
   const files = (await fs.readdir(migDir))
     .filter((f) => f.endsWith('.sql'))
@@ -37,9 +30,9 @@ async function main() {
     }
     await client.query('COMMIT');
     console.log('Migrations applied successfully.');
-  } catch (e) {
+  } catch (e: unknown) {
     await client.query('ROLLBACK');
-    console.error('Migration failed:', e.message);
+    console.error('Migration failed:', e instanceof Error ? e.message : String(e));
     process.exit(1);
   } finally {
     client.release();

@@ -10,7 +10,7 @@ const POLLEN_TYPES: { value: PollenType; label: string }[] = [
   { value: 'total', label: 'Total' },
   { value: 'tree', label: 'Tree' },
   { value: 'grass', label: 'Grass' },
-  { value: 'weed', label: 'Weed' },
+  { value: 'ragweed', label: 'Ragweed' },
 ];
 
 export default function MapView() {

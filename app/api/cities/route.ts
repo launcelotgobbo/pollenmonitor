@@ -19,10 +19,9 @@ export async function GET(_req: NextRequest) {
         a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
       );
     return Response.json({ cities });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'failed to load cities' }), {
-      status: 500,
-    });
+  } catch (error) {
+    console.error('[cities] error', error);
+    return Response.json({ error: 'Failed to load cities' }, { status: 500 });
   }
 }
 

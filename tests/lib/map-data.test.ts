@@ -15,9 +15,10 @@ test('buildMapFeatureCollection builds one feature per city with a sorted series
       tree: 30,
       grass: 8,
       weed: 2,
-      risk_tree: ['Moderate'],
-      risk_grass: ['Low'],
-      risk_weed: null,
+      max_species_tree: 20,
+      max_species_grass: 8,
+      max_species_weed: 2,
+      ragweed: 2,
       tz: 'America/Denver',
     },
     {
@@ -26,9 +27,10 @@ test('buildMapFeatureCollection builds one feature per city with a sorted series
       tree: 12,
       grass: 5,
       weed: 1,
-      risk_tree: ['Low'],
-      risk_grass: ['Low'],
-      risk_weed: ['Low'],
+      max_species_tree: 8,
+      max_species_grass: 5,
+      max_species_weed: 1,
+      ragweed: 1,
       tz: 'America/Denver',
     },
     {
@@ -37,9 +39,10 @@ test('buildMapFeatureCollection builds one feature per city with a sorted series
       tree: 100,
       grass: 40,
       weed: 9,
-      risk_tree: ['High'],
-      risk_grass: ['Moderate'],
-      risk_weed: ['Low'],
+      max_species_tree: 50,
+      max_species_grass: 40,
+      max_species_weed: 9,
+      ragweed: 9,
       tz: 'America/Chicago',
     },
   ];
@@ -63,30 +66,34 @@ test('buildMapFeatureCollection builds one feature per city with a sorted series
   );
 });
 
-test('buildMapFeatureCollection reduces multiple risk labels to the highest severity', () => {
+test('buildMapFeatureCollection uses NAB risk based on the maximum species value', () => {
   const rows: DailyCityRow[] = [
     {
       city_slug: 'denver',
       date: '2026-08-10',
-      tree: 12,
-      grass: 5,
-      weed: 1,
-      risk_tree: ['Low', 'Very High', 'Moderate'],
-      risk_grass: ['Low', 'Medium'],
-      risk_weed: [],
+      tree: 100,
+      grass: 40,
+      weed: 55,
+      max_species_tree: 40,
+      max_species_grass: 8,
+      max_species_weed: 35,
+      ragweed: 35,
       tz: null,
     },
   ];
 
   const fc = buildMapFeatureCollection(rows, coords, '2026-08-10');
   const props = (fc.features[0] as any).properties;
-  assert.equal(props.risk_tree, 'Very High');
-  assert.equal(props.risk_grass, 'Medium');
-  assert.equal(props.risk_weed, null);
-  assert.equal(props.sev_tree, 5);
+  assert.equal(props.risk_tree, 'Moderate');
+  assert.equal(props.risk_grass, 'Moderate');
+  assert.equal(props.risk_weed, 'Moderate');
+  assert.equal(props.ragweed, 35);
+  assert.equal(props.risk_ragweed, 'Moderate');
+  assert.equal(props.sev_tree, 2);
   assert.equal(props.sev_grass, 2);
-  assert.equal(props.sev_weed, -1);
-  assert.equal(props.sev_total, 5);
+  assert.equal(props.sev_weed, 2);
+  assert.equal(props.sev_ragweed, 2);
+  assert.equal(props.sev_total, 2);
 });
 
 test('buildMapFeatureCollection falls back to the first series day when the requested date is missing', () => {
@@ -97,9 +104,10 @@ test('buildMapFeatureCollection falls back to the first series day when the requ
       tree: 7,
       grass: 3,
       weed: 0,
-      risk_tree: ['Low'],
-      risk_grass: null,
-      risk_weed: null,
+      max_species_tree: null,
+      max_species_grass: null,
+      max_species_weed: null,
+      ragweed: 0,
       tz: 'America/Chicago',
     },
   ];
@@ -119,12 +127,36 @@ test('buildMapFeatureCollection uses [0,0] for unknown city coordinates', () => 
       tree: 1,
       grass: 1,
       weed: 1,
-      risk_tree: null,
-      risk_grass: null,
-      risk_weed: null,
+      max_species_tree: null,
+      max_species_grass: null,
+      max_species_weed: null,
+      ragweed: 1,
       tz: null,
     },
   ];
   const fc = buildMapFeatureCollection(rows, coords, '2026-08-10');
   assert.deepEqual((fc.features[0] as any).geometry.coordinates, [0, 0]);
+});
+
+test('buildMapFeatureCollection uses weed as ragweed for pre-species rows', () => {
+  const rows: DailyCityRow[] = [
+    {
+      city_slug: 'denver',
+      date: '2026-08-10',
+      tree: 1,
+      grass: 1,
+      weed: 60,
+      max_species_tree: null,
+      max_species_grass: null,
+      max_species_weed: null,
+      ragweed: null,
+      tz: 'America/Denver',
+    },
+  ];
+
+  const fc = buildMapFeatureCollection(rows, coords, '2026-08-10');
+  const props = (fc.features[0] as any).properties;
+  assert.equal(props.ragweed, 60);
+  assert.equal(props.risk_ragweed, 'High');
+  assert.equal(props.sev_ragweed, 3);
 });

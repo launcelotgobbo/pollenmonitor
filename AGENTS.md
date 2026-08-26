@@ -58,8 +58,9 @@
   - Local: `curl -X POST -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest"`
   - Options: `?city=slug` to target one city, `?hours=48` to adjust window, `?dry=true` for a dry run.
 - Cron (Vercel): daily function call to `/api/cron/daily-ingest` (already wired via `vercel.json`).
-  - Auth: Vercel Cron includes `x-vercel-cron`. Manual triggers can use `/api/cron/daily-ingest?token=$INGEST_TOKEN`.
-  - Logs: Each run is recorded in `ingest_logs` with counts + duration.
+  - Auth: set `CRON_SECRET` in every environment so Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual triggers use a header, never a query string: `curl -H "x-ingest-token: $INGEST_TOKEN" ".../api/cron/daily-ingest"`.
+  - Logs: Each run is recorded in `ingest_logs` with counts + duration. Stack traces stay in function logs and are not persisted.
+- Inspect runs: `curl -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest-logs"` (operator-only, not a public endpoint).
 - Local git hook: run `npm run setup:hooks` once to enforce `npm run build` on each commit (set `SKIP_PRECOMMIT_BUILD=1` to bypass when needed).
 
 ## Cron & Logging

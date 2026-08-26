@@ -1,4 +1,6 @@
 import { fetchWithRetry } from '@/lib/http';
+import { withNabRisk } from '@/lib/risk';
+import type { SpeciesBreakdown } from '@/lib/species';
 
 const AMBEE_BASE = 'https://api.ambeedata.com';
 
@@ -19,7 +21,7 @@ export type AmbeeHourly = {
   risk_grass?: string | null;
   risk_tree?: string | null;
   risk_weed?: string | null;
-  species?: any;
+  species?: SpeciesBreakdown | null;
 };
 
 function isMockMode() {
@@ -31,17 +33,15 @@ function mockHourly(fromISO: string, toISO: string): AmbeeHourly[] {
   const start = new Date(fromISO);
   const end = new Date(toISO);
   for (let d = new Date(start); d <= end; d.setHours(d.getHours() + 1)) {
-    out.push({
+    const row = {
       ts: d.toISOString(),
       tz: 'UTC',
       grass: Math.floor(Math.random() * 20),
       tree: Math.floor(Math.random() * 20),
       weed: Math.floor(Math.random() * 40),
-      risk_grass: 'Low',
-      risk_tree: 'Low',
-      risk_weed: 'Moderate',
       species: { Weed: { Ragweed: Math.floor(Math.random() * 40) } },
-    });
+    };
+    out.push(withNabRisk(row));
   }
   return out;
 }
@@ -52,19 +52,15 @@ function mapPollenItem(hour: any, responseTz: string | null): AmbeeHourly {
     (hour?.unixTs ? new Date(hour.unixTs * 1000).toISOString() : null) ||
     hour?.createdAt ||
     (hour?.time ? new Date(hour.time * 1000).toISOString() : null);
-  const risk = hour?.Risk || {};
   const cnt = hour?.Count || {};
-  return {
+  return withNabRisk({
     ts: ts || new Date().toISOString(),
     tz: hour?.timezone || responseTz,
     grass: cnt?.grass_pollen ?? null,
     tree: cnt?.tree_pollen ?? null,
     weed: cnt?.weed_pollen ?? null,
-    risk_grass: risk?.grass_pollen ?? null,
-    risk_tree: risk?.tree_pollen ?? null,
-    risk_weed: risk?.weed_pollen ?? null,
     species: hour?.Species ?? null,
-  };
+  });
 }
 
 async function fetchPollenList(url: string, label: string): Promise<AmbeeHourly[]> {
