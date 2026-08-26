@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import CityDailyExplorer, { DailySummary, HourlyRow } from '@/components/CityDailyExplorer';
-import { normalizeSpecies } from '@/lib/species';
+import { assertSupportedCity, UnsupportedCityError } from '@/lib/cities';
+import { getDailyPollenRows, getHourlyPollenRows } from '@/lib/pollen';
 import { absoluteUrl, cityDisplayName, normalizeCitySlug } from '@/lib/site';
 
 type Props = {
@@ -45,65 +45,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-async function getApiBaseUrl() {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-
-  if (process.env.NODE_ENV === 'development') {
-    const host = (await headers()).get('host')?.trim();
-    if (host && /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(host)) {
-      return `http://${host}`;
-    }
-  }
-
-  return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-}
-
-async function readJson(response: Response, endpoint: string): Promise<any | null> {
-  const contentType = response.headers.get('content-type') || '';
-  if (!response.ok || !contentType.toLowerCase().includes('application/json')) {
-    console.error('[city-page] API returned a non-JSON response', {
-      endpoint,
-      status: response.status,
-      contentType,
-    });
-    return null;
-  }
-
-  try {
-    return await response.json();
-  } catch {
-    console.error('[city-page] API returned invalid JSON', { endpoint, status: response.status });
-    return null;
-  }
-}
-
 export default async function CityPage({ params, searchParams }: Props) {
   const city = normalizeCitySlug((await params).city);
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   if (!city) notFound();
 
-  const base = await getApiBaseUrl();
+  try {
+    await assertSupportedCity(city);
+  } catch (error) {
+    if (error instanceof UnsupportedCityError) notFound();
+    throw error;
+  }
 
-  const dailyUrl = new URL(`${base}/api/pollen`);
-  dailyUrl.searchParams.set('city', city);
-  const dailyRes = await fetch(dailyUrl.toString(), { next: { revalidate } });
-  const dailyJson = await readJson(dailyRes, 'daily pollen');
-  const dailyRows: DailySummary[] = Array.isArray(dailyJson?.rows)
-    ? dailyJson.rows
-        .filter((row: any) => row && typeof row.date === 'string')
-        .map((row: any) => ({
-          date: row.date,
-          avg_tree: typeof row.avg_tree === 'number' ? row.avg_tree : null,
-          avg_grass: typeof row.avg_grass === 'number' ? row.avg_grass : null,
-          avg_weed: typeof row.avg_weed === 'number' ? row.avg_weed : null,
-          avg_total: typeof row.avg_total === 'number' ? row.avg_total : null,
-          timezone: typeof row.timezone === 'string' && row.timezone.trim() ? row.timezone : null,
-          species: normalizeSpecies(row.species),
-          risk_tree: typeof row.risk_tree === 'string' ? row.risk_tree : null,
-          risk_grass: typeof row.risk_grass === 'string' ? row.risk_grass : null,
-          risk_weed: typeof row.risk_weed === 'string' ? row.risk_weed : null,
-        }))
-    : [];
+  const dailyRows: DailySummary[] = await getDailyPollenRows(city);
 
   const selected =
     resolvedSearchParams?.date && dailyRows.some((row) => row.date === resolvedSearchParams.date)
@@ -114,12 +68,7 @@ export default async function CityPage({ params, searchParams }: Props) {
   let timezone: string | null = null;
 
   if (selected) {
-    const hourlyUrl = new URL(`${base}/api/pollen`);
-    hourlyUrl.searchParams.set('city', city);
-    hourlyUrl.searchParams.set('date', selected);
-    const res = await fetch(hourlyUrl.toString(), { next: { revalidate } });
-    const data = await readJson(res, 'hourly pollen');
-    hourlyRows = Array.isArray(data?.rows) ? (data.rows as HourlyRow[]) : [];
+    hourlyRows = await getHourlyPollenRows(city, selected);
     const detectedTimezone = hourlyRows.find((row) => row.timezone)?.timezone;
     if (typeof detectedTimezone === 'string' && detectedTimezone.trim()) {
       timezone = detectedTimezone.trim();
@@ -216,9 +165,9 @@ export default async function CityPage({ params, searchParams }: Props) {
             {cityLabel} pollen summary for {selectedDaily.date}
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Modeled daily averages are {selectedDaily.avg_tree ?? 'unavailable'} grains/m³ tree pollen,{' '}
-            {selectedDaily.avg_grass ?? 'unavailable'} grains/m³ grass pollen, and{' '}
-            {selectedDaily.avg_weed ?? 'unavailable'} grains/m³ ragweed. NAB risk levels are tree{' '}
+            Modeled daily averages are {selectedDaily.tree ?? 'unavailable'} grains/m³ tree pollen,{' '}
+            {selectedDaily.grass ?? 'unavailable'} grains/m³ grass pollen, and{' '}
+            {selectedDaily.weed ?? 'unavailable'} grains/m³ ragweed. NAB risk levels are tree{' '}
             {selectedDaily.risk_tree ?? 'unavailable'}, grass {selectedDaily.risk_grass ?? 'unavailable'}, and ragweed{' '}
             {selectedDaily.risk_weed ?? 'unavailable'}.
           </p>

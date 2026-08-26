@@ -73,10 +73,10 @@ export default function DaySnapshot({ selectedDate, selectedDaily, hourlyRows, w
 
         {selectedDaily ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Avg total" value={formatNumeric(selectedDaily.avg_total)} footnote="grains/m³" />
-            <StatCard label="Avg tree" value={formatNumeric(selectedDaily.avg_tree)} valueClass="text-emerald-700" />
-            <StatCard label="Avg grass" value={formatNumeric(selectedDaily.avg_grass)} valueClass="text-lime-700" />
-            <StatCard label="Avg ragweed" value={formatNumeric(selectedDaily.avg_weed)} valueClass="text-amber-700" />
+            <StatCard label="Avg total" value={formatNumeric(selectedDaily.total)} footnote="grains/m³" />
+            <StatCard label="Avg tree" value={formatNumeric(selectedDaily.tree)} valueClass="text-emerald-700" />
+            <StatCard label="Avg grass" value={formatNumeric(selectedDaily.grass)} valueClass="text-lime-700" />
+            <StatCard label="Avg ragweed" value={formatNumeric(selectedDaily.weed)} valueClass="text-amber-700" />
           </div>
         ) : (
           <p className="text-sm text-slate-500">No averages available yet. Try a different city.</p>

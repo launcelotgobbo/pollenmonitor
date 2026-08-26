@@ -1,23 +1,14 @@
 import { NextRequest } from 'next/server';
-const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
-
-function slugify(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
+import { loadTopCities } from '@/lib/ingest/cities';
 
 export async function GET(_req: NextRequest) {
   try {
-    const fs = await import('node:fs/promises');
-    const buf = await fs.readFile(`public/data/${CITY_GEOJSON_FILENAME}`, 'utf-8');
-    const fc = JSON.parse(buf);
-    const cities = fc.features
-      .map((f: any) => ({
-        name: f.properties.name as string,
-        slug: slugify(f.properties.name as string),
-      }))
+    const cities = (await loadTopCities())
+      .map(({ name, slug }) => ({ name, slug }))
       .sort((a: { name: string }, b: { name: string }) =>
         a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
       );
+    if (cities.length === 0) throw new Error('No supported city definitions available');
     return Response.json({ cities });
   } catch (error) {
     console.error('[cities] error', error);

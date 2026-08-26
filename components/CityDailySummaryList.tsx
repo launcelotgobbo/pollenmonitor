@@ -69,7 +69,7 @@ export default function CityDailySummaryList({ days, selected, onSelect }: Props
                 <p className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
                   {formatDateLabel(day.date)}
                 </p>
-                <p className="text-[11px] text-slate-500">Avg total {formatValue(day.avg_total)} grains/m³</p>
+                <p className="text-[11px] text-slate-500">Avg total {formatValue(day.total)} grains/m³</p>
               </div>
               <span className="text-xs font-semibold text-slate-400">{isSelected ? 'Viewing' : 'Select'}</span>
             </div>
@@ -77,19 +77,19 @@ export default function CityDailySummaryList({ days, selected, onSelect }: Props
               <div className="space-y-1">
                 <dt className="font-medium uppercase tracking-wide text-slate-400">Tree</dt>
                 <dd className={`text-sm font-semibold ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}>
-                  {formatValue(day.avg_tree)}
+                  {formatValue(day.tree)}
                 </dd>
               </div>
               <div className="space-y-1">
                 <dt className="font-medium uppercase tracking-wide text-slate-400">Grass</dt>
                 <dd className={`text-sm font-semibold ${isSelected ? 'text-lime-700' : 'text-slate-700'}`}>
-                  {formatValue(day.avg_grass)}
+                  {formatValue(day.grass)}
                 </dd>
               </div>
               <div className="space-y-1">
                 <dt className="font-medium uppercase tracking-wide text-slate-400">Ragweed</dt>
                 <dd className={`text-sm font-semibold ${isSelected ? 'text-amber-700' : 'text-slate-700'}`}>
-                  {formatValue(day.avg_weed)}
+                  {formatValue(day.weed)}
                 </dd>
               </div>
               <div className="hidden space-y-1 sm:block">
