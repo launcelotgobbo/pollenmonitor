@@ -9,7 +9,8 @@ Pollen Monitor provides public, read-only pollen, species, forecast, weather, an
 
 - OpenAPI 3.1 contract: ${absoluteUrl('/openapi.json')}
 - Human API documentation: ${absoluteUrl('/docs/api')}
-- MCP setup guide: ${absoluteUrl('/docs/mcp')}
+- Hosted MCP server (Streamable HTTP): ${absoluteUrl('/mcp')}
+- MCP connection guide: ${absoluteUrl('/docs/mcp')}
 - Supported cities: ${absoluteUrl('/api/cities')}
 - Latest cross-city pollen GeoJSON: ${absoluteUrl('/api/map-data?date=latest')}
 

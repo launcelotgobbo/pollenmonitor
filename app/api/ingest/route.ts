@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { parseUtcDate } from '@/lib/date';
+import { formatUtcSqlTimestamp, parseUtcDate } from '@/lib/date';
 import { logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
@@ -9,10 +9,6 @@ import { runIngestJob } from '@/lib/ingest/run-ingest';
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 // Ambee Pollen API v3 history only covers the past 48 hours
 const AMBEE_HISTORY_HOURS = 48;
-
-function toISODateTime(input: Date) {
-  return input.toISOString().slice(0, 19).replace('T', ' ');
-}
 
 export async function POST(req: NextRequest) {
   if (!isIngestAuthorized(req)) return unauthorized();
@@ -36,14 +32,14 @@ export async function POST(req: NextRequest) {
     const start = new Date(`${dateParam}T00:00:00Z`);
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 1);
-    toISO = toISODateTime(end);
-    fromISO = toISODateTime(start);
+    toISO = formatUtcSqlTimestamp(end);
+    fromISO = formatUtcSqlTimestamp(start);
   } else {
     const end = new Date();
     const start = new Date(end);
     start.setHours(start.getHours() - hoursBack);
-    toISO = toISODateTime(end);
-    fromISO = toISODateTime(start);
+    toISO = formatUtcSqlTimestamp(end);
+    fromISO = formatUtcSqlTimestamp(start);
   }
 
   const fromDate = parseUtcDate(fromISO);
@@ -60,14 +56,14 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         error: `Requested window is entirely older than the Ambee v3 history limit (past ${AMBEE_HISTORY_HOURS} hours)`,
-        earliestAvailable: toISODateTime(earliest),
+        earliestAvailable: formatUtcSqlTimestamp(earliest),
       }),
       { status: 400 },
     );
   }
   let windowClamped = false;
   if (fromDate < earliest) {
-    fromISO = toISODateTime(earliest);
+    fromISO = formatUtcSqlTimestamp(earliest);
     windowClamped = true;
   }
 
@@ -78,7 +74,7 @@ export async function POST(req: NextRequest) {
       level: 'warn',
       job: 'manual-ingest',
       jobId,
-      requestedFrom: toISODateTime(fromDate),
+      requestedFrom: formatUtcSqlTimestamp(fromDate),
       clampedFrom: fromISO,
       historyHours: AMBEE_HISTORY_HOURS,
     });

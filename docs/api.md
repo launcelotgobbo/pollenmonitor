@@ -132,14 +132,14 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
 
 ## `GET /api/pollen-range`
 
-Query data over arbitrary date windows. Supports hourly data (`aggregate=none`, the default) or per-day averages (`aggregate=day`). Optional `city` accepts a comma-separated list; omit it for all cities.
+Query data over arbitrary date windows. Supports hourly data (`aggregate=none`, the default) or per-day averages (`aggregate=day`). Both modes return the same flat row shape. Optional `city` accepts a comma-separated list; omit it for all cities.
 
 | Parameter   | Required | Description                                     |
 |-------------|----------|-------------------------------------------------|
 | `from`      | ✅        | Start (inclusive). Accepts `YYYY-MM-DD` or ISO. |
 | `to`        | ✅        | End (exclusive). Must be after `from`.         |
 | `city`      | ❌        | Comma-separated city slugs.                     |
-| `aggregate` | ❌        | `day` for daily averages, otherwise hourly.     |
+| `aggregate` | ❌        | `none` or `day`; other values return `400`.     |
 | `limit`     | ❌        | Max rows to return (1–50 000, default 20 000).  |
 
 ### Hourly example
@@ -156,15 +156,14 @@ GET /api/pollen-range?city=denver&from=2024-04-10&to=2024-04-15
   "aggregate": "none",
   "rows": [
     {
-      "city_slug": "denver",
-      "ts": "2024-04-10T06:00:00.000Z",
+      "city": "denver",
+      "periodStart": "2024-04-10T06:00:00.000Z",
       "tree": 32,
       "grass": 5,
       "weed": 0,
       "risk_tree": "Moderate",
       "risk_grass": "Moderate",
       "risk_weed": "None",
-      "tz": "America/Denver",
       "total": 37,
       "timezone": "America/Denver"
     }
@@ -187,9 +186,12 @@ GET /api/pollen-range?aggregate=day&city=denver,san-francisco&from=2024-04-01&to
   "rows": [
     {
       "city": "denver",
-      "data": [
-        { "date": "2024-04-01", "avg_tree": 24, "avg_grass": 3, "avg_weed": 0, "avg_total": 27, "timezone": "America/Denver" }
-      ]
+      "periodStart": "2024-04-01T00:00:00.000Z",
+      "tree": 24,
+      "grass": 3,
+      "weed": 0,
+      "total": 27,
+      "timezone": "America/Denver"
     }
   ]
 }
@@ -199,6 +201,13 @@ Errors return a `400` with an explanatory message, for example:
 
 ```json
 { "error": "Parameter 'from' must be before 'to'" }
+```
+
+Unknown aggregation modes are also rejected rather than silently treated as
+hourly:
+
+```json
+{ "error": "Invalid parameter 'aggregate': expected 'none' or 'day'" }
 ```
 
 ## `GET /api/map-data`

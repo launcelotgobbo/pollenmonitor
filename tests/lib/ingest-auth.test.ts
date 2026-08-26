@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { isIngestAuthorized } from '@/lib/ingest-auth';
+import { isBearerAuthorized, isIngestAuthorized } from '@/lib/ingest-auth';
 
 function request(headers: Record<string, string>, url = 'http://localhost/api/ingest-logs') {
   return new Request(url, { headers });
@@ -31,6 +31,13 @@ test('accepts a matching bearer token', () => {
       true,
     );
   });
+});
+
+test('validates arbitrary bearer secrets without direct string comparison', () => {
+  const req = request({ authorization: 'Bearer cron-secret' });
+  assert.equal(isBearerAuthorized(req, 'cron-secret'), true);
+  assert.equal(isBearerAuthorized(req, 'wrong-secret'), false);
+  assert.equal(isBearerAuthorized(req, ''), false);
 });
 
 test('rejects wrong, absent, and prefix-matching tokens', () => {

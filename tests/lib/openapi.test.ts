@@ -61,3 +61,16 @@ test('OpenAPI documents runtime error and map media-type contracts', () => {
   const mapContent = OPENAPI_DOCUMENT.paths['/api/map-data'].get.responses['200'].content;
   assert.deepEqual(Object.keys(mapContent), ['application/geo+json']);
 });
+
+test('OpenAPI documents strict aggregation and one pollen-range row shape', () => {
+  const operation = OPENAPI_DOCUMENT.paths['/api/pollen-range'].get;
+  const aggregate = operation.parameters.find((parameter: any) => parameter.name === 'aggregate') as
+    | { schema: { enum: readonly string[] } }
+    | undefined;
+  assert.ok(aggregate);
+  assert.deepEqual(aggregate.schema.enum, ['none', 'day']);
+  assert.equal(
+    OPENAPI_DOCUMENT.components.schemas.PollenRangeResponse.properties.rows.items.$ref,
+    '#/components/schemas/PollenRangeRow',
+  );
+});

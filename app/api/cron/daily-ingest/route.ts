@@ -1,8 +1,14 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { formatUtcSqlTimestamp } from '@/lib/date';
 import { logIngest } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
-import { isIngestAuthorized } from '@/lib/ingest-auth';
+import {
+  DAILY_INGEST_LOCAL_HOUR,
+  DAILY_INGEST_TIME_ZONE,
+  shouldRunDailyIngest,
+} from '@/lib/ingest/schedule';
+import { isBearerAuthorized, isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
@@ -12,8 +18,7 @@ export async function GET(req: NextRequest) {
   // header-presence fallback: x-vercel-* headers are client-suppliable, so
   // trusting them would let anyone trigger a full paid-provider ingest.
   const cronSecret = process.env.CRON_SECRET || '';
-  const authorization = req.headers.get('authorization') || '';
-  const cronAuthorized = Boolean(cronSecret) && authorization === `Bearer ${cronSecret}`;
+  const cronAuthorized = isBearerAuthorized(req, cronSecret);
   const authorized = cronAuthorized || isIngestAuthorized(req);
   const jobId =
     req.headers.get('x-vercel-id') ||
@@ -30,14 +35,30 @@ export async function GET(req: NextRequest) {
       ingestTokenConfigured: Boolean(process.env.INGEST_TOKEN),
       path: '/api/cron/daily-ingest',
     });
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthorized();
   }
 
   const now = new Date();
-  const toISO = now.toISOString().slice(0, 19).replace('T', ' ');
+  if (!shouldRunDailyIngest(now, cronAuthorized)) {
+    console.log('[cron daily-ingest] skipped outside scheduled Pacific hour', {
+      level: 'info',
+      job: 'daily-ingest',
+      jobId,
+      ts: now.toISOString(),
+      timeZone: DAILY_INGEST_TIME_ZONE,
+    });
+    return Response.json({
+      ok: true,
+      skipped: true,
+      reason: `Outside the ${DAILY_INGEST_LOCAL_HOUR} AM ${DAILY_INGEST_TIME_ZONE} execution window`,
+      ts: now.toISOString(),
+    });
+  }
+
+  const toISO = formatUtcSqlTimestamp(now);
   const fromDate = new Date(now);
   fromDate.setHours(fromDate.getHours() - 42);
-  const fromISO = fromDate.toISOString().slice(0, 19).replace('T', ' ');
+  const fromISO = formatUtcSqlTimestamp(fromDate);
   const cities = await loadTopCities();
 
   console.log('[cron daily-ingest] start', {
