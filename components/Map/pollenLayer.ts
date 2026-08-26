@@ -4,9 +4,9 @@ import { buildPopupHtml } from './popup';
 export const POLLEN_SOURCE_ID = 'pollen';
 export const POLLEN_LAYER_ID = 'unclustered-point';
 
-export type PollenType = 'total' | 'tree' | 'grass' | 'weed';
+export type PollenType = 'total' | 'tree' | 'grass' | 'ragweed';
 
-// Ambee risk scores (see lib/risk.ts riskPriority); colors match Legend.tsx.
+// NAB risk scores (see lib/risk.ts); colors match Legend.tsx.
 // Score < 0 means no risk data for the selected type.
 export function severityPaint(type: PollenType) {
   return [

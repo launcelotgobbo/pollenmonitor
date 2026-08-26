@@ -1,34 +1,7 @@
-import { Pool, defaults, type QueryResult, type QueryResultRow } from 'pg';
+import { Pool, type QueryResult, type QueryResultRow } from 'pg';
+import { createPostgresPoolConfig } from '@/lib/postgres-config';
 
-// Prefer verifying TLS against a pinned CA (Supabase publishes one per project);
-// only fall back to disabling verification when no CA is configured.
-const caCert = process.env.POSTGRES_CA_CERT || '';
-
-if (!caCert) {
-  // Supabase pooled connections often present self-signed chains; relax verification at driver level
-  try {
-    const url = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '';
-    if (/supabase\.(co|com)/.test(url)) {
-      defaults.ssl = { rejectUnauthorized: false } as any;
-    }
-  } catch {}
-}
-
-let connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '';
-try {
-  if (connectionString && !caCert) {
-    if (/sslmode=/.test(connectionString)) {
-      connectionString = connectionString.replace(/sslmode=[^&]+/i, 'sslmode=no-verify');
-    } else {
-      connectionString += (connectionString.includes('?') ? '&' : '?') + 'sslmode=no-verify';
-    }
-  }
-} catch {}
-
-const pool = new Pool({
-  connectionString,
-  ssl: caCert ? { ca: caCert, rejectUnauthorized: true } : { rejectUnauthorized: false },
-});
+const pool = new Pool(createPostgresPoolConfig());
 
 async function q<T extends QueryResultRow = QueryResultRow>(text: string, params?: any[]): Promise<QueryResult<T>> {
   return pool.query<T>(text, params);
@@ -39,6 +12,19 @@ export const query = q;
 // Matches PostgREST's timestamptz JSON serialization so API responses keep
 // their shape now that reads go through pg directly.
 export const TS_ISO = `to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+export function numericSpeciesEntriesSql(speciesExpression: string) {
+  return `jsonb_each(
+            CASE WHEN jsonb_typeof(${speciesExpression}) = 'object' THEN ${speciesExpression} ELSE '{}'::jsonb END
+          ) AS category
+          CROSS JOIN LATERAL (
+            SELECT key, value
+            FROM jsonb_each_text(
+              CASE WHEN jsonb_typeof(category.value) = 'object' THEN category.value ELSE '{}'::jsonb END
+            )
+            WHERE value ~ '^-?[0-9]+(?:\\.[0-9]+)?$'
+          ) AS item`;
+}
 
 export type PollenHourlyRow = {
   city_slug: string;
@@ -51,7 +37,7 @@ export type PollenHourlyRow = {
   risk_grass?: string | null;
   risk_tree?: string | null;
   risk_weed?: string | null;
-  species?: any;
+  species?: unknown;
 };
 
 export async function upsertPollenHourlyBatch(rows: PollenHourlyRow[]) {
@@ -155,13 +141,14 @@ export type ForecastRow = {
   risk_grass: string | null;
   risk_tree: string | null;
   risk_weed: string | null;
+  species: unknown;
 };
 
 export async function getForecastRows(
   citySlug: string,
 ): Promise<{ rows: ForecastRow[]; fetchedAt: string | null }> {
   const res = await q<ForecastRow & { fetched_at: string }>(
-    `SELECT ${TS_ISO} AS ts, tz, grass, tree, weed, total, risk_grass, risk_tree, risk_weed,
+    `SELECT ${TS_ISO} AS ts, tz, grass, tree, weed, total, risk_grass, risk_tree, risk_weed, species,
             to_char(fetched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS fetched_at
      FROM pollen_forecast_hourly
      WHERE city_slug = $1 AND ts >= now() - interval '1 hour'
@@ -262,9 +249,9 @@ export async function upsertWeatherDaily(row: {
        wind_deg = EXCLUDED.wind_deg,
        clouds_pct = EXCLUDED.clouds_pct,
        precip_mm = EXCLUDED.precip_mm,
-       uvi = EXCLUDED.uvi,
-       weather_main = EXCLUDED.weather_main,
-       weather_desc = EXCLUDED.weather_desc,
+       uvi = COALESCE(EXCLUDED.uvi, weather_daily.uvi),
+       weather_main = COALESCE(EXCLUDED.weather_main, weather_daily.weather_main),
+       weather_desc = COALESCE(EXCLUDED.weather_desc, weather_daily.weather_desc),
        aqi = EXCLUDED.aqi,
        aqi_pm2_5 = EXCLUDED.aqi_pm2_5,
        aqi_pm10 = EXCLUDED.aqi_pm10,

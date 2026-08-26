@@ -1,13 +1,14 @@
+import { withNabRisk, type PollenRisk } from '@/lib/risk';
+import { addSpecies, averageSpecies, type SpeciesAccumulator, type SpeciesBreakdown } from '@/lib/species';
+
 export type HourlyRow = {
   city_slug: string;
   ts: string;
   tree: number | null;
   grass: number | null;
   weed: number | null;
-  risk_tree: string | null;
-  risk_grass: string | null;
-  risk_weed: string | null;
   tz: string | null;
+  species?: unknown;
 };
 
 export type AggregatedDay = {
@@ -17,11 +18,17 @@ export type AggregatedDay = {
   avg_weed: number | null;
   avg_total: number | null;
   timezone: string | null;
+  species: SpeciesBreakdown | null;
+  risk_tree: PollenRisk | null;
+  risk_grass: PollenRisk | null;
+  risk_weed: PollenRisk | null;
 };
 
 export type AggregatedCityDays = { city: string; data: AggregatedDay[] };
 
-type InternalDay = AggregatedDay & {
+type InternalDay = {
+  date: string;
+  timezone: string | null;
   treeSum: number;
   treeCount: number;
   grassSum: number;
@@ -30,6 +37,7 @@ type InternalDay = AggregatedDay & {
   weedCount: number;
   totalSum: number;
   totalCount: number;
+  speciesAccumulator: SpeciesAccumulator;
 };
 
 export function normalizeCityList(cityParam: string | null): string[] {
@@ -41,14 +49,22 @@ export function normalizeCityList(cityParam: string | null): string[] {
     .map((value) => value.toLowerCase());
 }
 
+/** Marks a caller-fixable input problem, so only these messages reach clients. */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 export function parseDate(value: string | null, label: string): Date {
-  if (!value) throw new Error(`Missing required parameter '${label}'`);
+  if (!value) throw new ValidationError(`Missing required parameter '${label}'`);
   const normalized = value.trim();
   const isoLike = /\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?/;
   const candidate = isoLike.test(normalized) ? normalized : `${normalized}T00:00:00Z`;
   const date = new Date(candidate);
   if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid date value provided for '${label}'`);
+    throw new ValidationError(`Invalid date value provided for '${label}'`);
   }
   return date;
 }
@@ -61,10 +77,6 @@ export function aggregateDaily(rows: HourlyRow[]): AggregatedCityDays[] {
     byCity.set(city, cityMap);
     const existing = cityMap.get(day) ?? {
       date: day,
-      avg_tree: null,
-      avg_grass: null,
-      avg_weed: null,
-      avg_total: null,
       timezone: row.tz ?? null,
       treeSum: 0,
       treeCount: 0,
@@ -74,6 +86,7 @@ export function aggregateDaily(rows: HourlyRow[]): AggregatedCityDays[] {
       weedCount: 0,
       totalSum: 0,
       totalCount: 0,
+      speciesAccumulator: new Map(),
     };
 
     if (typeof row.tree === 'number') {
@@ -103,6 +116,7 @@ export function aggregateDaily(rows: HourlyRow[]): AggregatedCityDays[] {
     if (!existing.timezone && row.tz) {
       existing.timezone = row.tz;
     }
+    addSpecies(existing.speciesAccumulator, row.species);
 
     cityMap.set(day, existing);
   };
@@ -119,14 +133,27 @@ export function aggregateDaily(rows: HourlyRow[]): AggregatedCityDays[] {
   const result: AggregatedCityDays[] = [];
   for (const [city, dayMap] of byCity.entries()) {
     const data = Array.from(dayMap.values())
-      .map((entry) => ({
-        date: entry.date,
-        avg_tree: entry.treeCount > 0 ? Math.round(entry.treeSum / entry.treeCount) : null,
-        avg_grass: entry.grassCount > 0 ? Math.round(entry.grassSum / entry.grassCount) : null,
-        avg_weed: entry.weedCount > 0 ? Math.round(entry.weedSum / entry.weedCount) : null,
-        avg_total: entry.totalCount > 0 ? Math.round(entry.totalSum / entry.totalCount) : null,
-        timezone: entry.timezone,
-      }))
+      .map((entry) => {
+        const values = {
+          tree: entry.treeCount > 0 ? Math.round(entry.treeSum / entry.treeCount) : null,
+          grass: entry.grassCount > 0 ? Math.round(entry.grassSum / entry.grassCount) : null,
+          weed: entry.weedCount > 0 ? Math.round(entry.weedSum / entry.weedCount) : null,
+          species: averageSpecies(entry.speciesAccumulator),
+        };
+        const classified = withNabRisk(values);
+        return {
+          date: entry.date,
+          avg_tree: values.tree,
+          avg_grass: values.grass,
+          avg_weed: values.weed,
+          avg_total: entry.totalCount > 0 ? Math.round(entry.totalSum / entry.totalCount) : null,
+          timezone: entry.timezone,
+          species: values.species,
+          risk_tree: classified.risk_tree,
+          risk_grass: classified.risk_grass,
+          risk_weed: classified.risk_weed,
+        };
+      })
       .sort((a, b) => a.date.localeCompare(b.date));
 
     result.push({ city, data });

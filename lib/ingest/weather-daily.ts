@@ -15,8 +15,15 @@ export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = 
 
   const cityResults = await mapWithConcurrency(cities, ingestConcurrency(), async (city) => {
     try {
-      openweatherCalls += 2; // OneCall + Air History
-      const byDate = await openweatherDailyWithAqi(city.lat, city.lon, fromISO, toISO);
+      const byDate = await openweatherDailyWithAqi(
+        city.lat,
+        city.lon,
+        fromISO,
+        toISO,
+        () => {
+          openweatherCalls += 1;
+        },
+      );
       const dates = Object.keys(byDate);
       if (!dryRun) {
         for (const d of dates) {

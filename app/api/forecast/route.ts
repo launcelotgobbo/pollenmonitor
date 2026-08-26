@@ -8,27 +8,39 @@ import {
   logProviderUsage,
   upsertPollenForecastBatch,
 } from '@/lib/db';
+import { withNabRisk } from '@/lib/risk';
+import { normalizeCitySlug } from '@/lib/site';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-// Calls held back from the daily quota so scheduled ingest never gets starved
-const QUOTA_RESERVE = 5;
+const QUOTA_RESERVE_FLOOR = 5;
 
 function quota() {
   const parsed = Number(process.env.AMBEE_DAILY_QUOTA);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
 }
 
+/**
+ * City slugs are public, so anyone can walk every slug on a cold cache and
+ * spend the whole daily quota here. Reserve a full scheduled ingest run (one
+ * call per city) so on-demand refreshes can never starve the cron job.
+ */
+function quotaReserve(cityCount: number) {
+  const override = Number(process.env.AMBEE_FORECAST_RESERVE);
+  if (Number.isFinite(override) && override >= 0) return override;
+  return Math.max(QUOTA_RESERVE_FLOOR, cityCount);
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const city = (searchParams.get('city') || '').trim().toLowerCase();
+  const city = normalizeCitySlug(searchParams.get('city') || '');
   if (!city) {
-    return new Response(JSON.stringify({ error: 'Provide ?city=slug' }), { status: 400 });
+    return Response.json({ error: 'Provide ?city=slug' }, { status: 400 });
   }
 
   const cities = await loadTopCities();
   const match = cities.find((c) => c.slug === city);
   if (!match) {
-    return new Response(JSON.stringify({ error: `Unknown city: ${city}` }), { status: 404 });
+    return Response.json({ error: `Unknown city: ${city}` }, { status: 404 });
   }
 
   try {
@@ -40,18 +52,20 @@ export async function GET(req: NextRequest) {
         source: 'cache',
         stale: false,
         fetchedAt: cached.fetchedAt,
-        rows: cached.rows,
+        rows: cached.rows.map(withNabRisk),
       });
     }
 
     const used = await getAmbeeCallsTodayUTC();
-    if (used >= quota() - QUOTA_RESERVE) {
-      console.warn('[forecast] Ambee daily quota nearly exhausted; serving stale cache', {
+    const reserve = quotaReserve(cities.length);
+    if (used >= quota() - reserve) {
+      console.warn('[forecast] Ambee daily quota reserve reached; serving stale cache', {
         level: 'warn',
         job: 'forecast',
         city,
         used,
         quota: quota(),
+        reserve,
       });
       return Response.json({
         city,
@@ -59,7 +73,7 @@ export async function GET(req: NextRequest) {
         stale: true,
         quotaExhausted: true,
         fetchedAt: cached.fetchedAt,
-        rows: cached.rows,
+        rows: cached.rows.map(withNabRisk),
       });
     }
 
@@ -89,7 +103,7 @@ export async function GET(req: NextRequest) {
       source: 'ambee',
       stale: false,
       fetchedAt: fresh.fetchedAt,
-      rows: fresh.rows,
+      rows: fresh.rows.map(withNabRisk),
     });
   } catch (err) {
     console.error('[forecast] error', {
@@ -98,7 +112,7 @@ export async function GET(req: NextRequest) {
       city,
       message: (err as Error)?.message ?? String(err),
     });
-    return new Response(JSON.stringify({ error: 'Forecast unavailable' }), { status: 500 });
+    return Response.json({ error: 'Forecast unavailable' }, { status: 500 });
   }
 }
 

@@ -1,14 +1,25 @@
 import { fetchWithRetry } from '@/lib/http';
+import { parseUtcDate } from '@/lib/date';
 
-const ONECALL_BASE = 'https://api.openweathermap.org/data/3.0/onecall';
+const DAY_SUMMARY_BASE = 'https://api.openweathermap.org/data/3.0/onecall/day_summary';
 const AIR_BASE = 'https://api.openweathermap.org/data/2.5/air_pollution/history';
 
 function toUnix(dateISO: string): number {
-  return Math.floor(new Date(dateISO).getTime() / 1000);
+  return Math.floor((parseUtcDate(dateISO)?.getTime() ?? Number.NaN) / 1000);
 }
 
-function isoDate(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+export function utcDatesInWindow(fromISO: string, toISO: string): string[] {
+  const from = parseUtcDate(fromISO);
+  const to = parseUtcDate(toISO);
+  if (!from || !to || from >= to) return [];
+
+  const dates: string[] = [];
+  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+  while (cursor < to) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 export type DailyWeather = {
@@ -36,25 +47,64 @@ export type DailyWeather = {
   aqi_co?: number | null;
 };
 
-export async function fetchDaily(lat: number, lon: number) : Promise<{ tz: string | null, days: Array<{ ts: number, data: any }> }> {
+function numeric(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export async function fetchDailySummary(
+  lat: number,
+  lon: number,
+  date: string,
+  onProviderCall?: () => void,
+): Promise<DailyWeather> {
   const key = process.env.OPENWEATHER_API_KEY || '';
-  const url = `${ONECALL_BASE}?lat=${lat}&lon=${lon}&exclude=hourly,minutely,alerts&units=metric&appid=${encodeURIComponent(key)}`;
+  const url = `${DAY_SUMMARY_BASE}?lat=${lat}&lon=${lon}&date=${encodeURIComponent(date)}&units=metric&appid=${encodeURIComponent(key)}`;
+  onProviderCall?.();
   const res = await fetchWithRetry(url);
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`OpenWeather OneCall failed (${res.status}): ${body}`);
+    throw new Error(`OpenWeather daily summary failed (${res.status}): ${body}`);
   }
   const json = await res.json();
-  const tz = typeof json.timezone === 'string' ? json.timezone : null;
-  const days = Array.isArray(json.daily) ? json.daily.map((d: any) => ({ ts: d.dt, data: d })) : [];
-  return { tz, days };
+  const temperature = json?.temperature || {};
+  const feelsLike = json?.feels_like || {};
+  const humidity = json?.humidity || {};
+  const pressure = json?.pressure || {};
+  const wind = json?.wind || {};
+  const precipitation = json?.precipitation || {};
+
+  return {
+    date: typeof json?.date === 'string' ? json.date : date,
+    tz: typeof json?.tz === 'string'
+      ? json.tz
+      : typeof json?.timezone === 'string'
+        ? json.timezone
+        : null,
+    temp_min_c: numeric(temperature.min),
+    temp_max_c: numeric(temperature.max),
+    temp_day_c: numeric(temperature.afternoon),
+    feels_like_day_c: numeric(feelsLike.afternoon),
+    humidity: numeric(humidity.afternoon),
+    pressure_hpa: numeric(pressure.afternoon),
+    wind_speed_ms: numeric(wind?.max?.speed) ?? numeric(wind?.afternoon?.speed),
+    wind_deg: numeric(wind?.max?.direction) ?? numeric(wind?.afternoon?.direction),
+    clouds_pct: numeric(json?.cloud_cover?.afternoon),
+    precip_mm: numeric(precipitation.total),
+  };
 }
 
-export async function fetchAirHistory(lat: number, lon: number, fromISO: string, toISO: string) : Promise<Array<{ ts: number, aqi: number, comps: any }>> {
+export async function fetchAirHistory(
+  lat: number,
+  lon: number,
+  fromISO: string,
+  toISO: string,
+  onProviderCall?: () => void,
+): Promise<Array<{ ts: number, aqi: number, comps: any }>> {
   const key = process.env.OPENWEATHER_API_KEY || '';
   const start = toUnix(fromISO);
   const end = toUnix(toISO);
   const url = `${AIR_BASE}?lat=${lat}&lon=${lon}&start=${start}&end=${end}&appid=${encodeURIComponent(key)}`;
+  onProviderCall?.();
   const res = await fetchWithRetry(url);
   if (!res.ok) {
     const body = await res.text();
@@ -69,33 +119,22 @@ export async function fetchAirHistory(lat: number, lon: number, fromISO: string,
   }));
 }
 
-export async function openweatherDailyWithAqi(lat: number, lon: number, fromISO: string, toISO: string): Promise<Record<string, DailyWeather>> {
-  const { tz, days } = await fetchDaily(lat, lon);
+export async function openweatherDailyWithAqi(
+  lat: number,
+  lon: number,
+  fromISO: string,
+  toISO: string,
+  onProviderCall?: () => void,
+): Promise<Record<string, DailyWeather>> {
+  const dates = utcDatesInWindow(fromISO, toISO);
+  const summaries = await Promise.all(
+    dates.map((date) => fetchDailySummary(lat, lon, date, onProviderCall)),
+  );
   const byDate: Record<string, DailyWeather> = {};
-  for (const d of days) {
-    const date = new Date(d.ts * 1000).toISOString().slice(0, 10);
-    const w = d.data;
-    byDate[date] = {
-      date,
-      tz: tz ?? null,
-      temp_min_c: w?.temp?.min ?? null,
-      temp_max_c: w?.temp?.max ?? null,
-      temp_day_c: w?.temp?.day ?? null,
-      feels_like_day_c: w?.feels_like?.day ?? null,
-      humidity: w?.humidity ?? null,
-      pressure_hpa: w?.pressure ?? null,
-      wind_speed_ms: w?.wind_speed ?? null,
-      wind_deg: w?.wind_deg ?? null,
-      clouds_pct: w?.clouds ?? null,
-      precip_mm: typeof w?.rain === 'number' ? w.rain : (typeof w?.snow === 'number' ? w.snow : null),
-      uvi: w?.uvi ?? null,
-      weather_main: Array.isArray(w?.weather) && w.weather[0]?.main ? String(w.weather[0].main) : null,
-      weather_desc: Array.isArray(w?.weather) && w.weather[0]?.description ? String(w.weather[0].description) : null,
-    };
-  }
+  for (const summary of summaries) byDate[summary.date] = summary;
 
   // Air history on the requested window; aggregate per day
-  const air = await fetchAirHistory(lat, lon, fromISO, toISO);
+  const air = await fetchAirHistory(lat, lon, fromISO, toISO, onProviderCall);
   const airByDate = new Map<string, { aqiSum: number; aqiCount: number; comps: Record<string, number[]> }>();
   for (const a of air) {
     const date = new Date(a.ts * 1000).toISOString().slice(0, 10);
@@ -125,12 +164,11 @@ export async function openweatherDailyWithAqi(lat: number, lon: number, fromISO:
     byDate[date] = target;
   }
 
-  // Clamp to requested window
-  const fromDate = isoDate(fromISO);
-  const toDate = isoDate(toISO);
+  // Clamp to the UTC dates touched by the requested window.
+  const requestedDates = new Set(dates);
   const out: Record<string, DailyWeather> = {};
   for (const [d, v] of Object.entries(byDate)) {
-    if (d >= fromDate && d < toDate) out[d] = v;
+    if (requestedDates.has(d)) out[d] = v;
   }
   return out;
 }

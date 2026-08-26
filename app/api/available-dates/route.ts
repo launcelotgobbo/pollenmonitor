@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest) {
     );
   } catch (e: any) {
     console.error('[available-dates] error:', e);
-    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
+    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }
 }
 

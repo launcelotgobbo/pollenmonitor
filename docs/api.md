@@ -1,8 +1,26 @@
 # Pollen Monitor API
 
-The application exposes several read-only endpoints so you can query pollen observations programmatically. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md).
+The application exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md).
 
-> **Note:** These endpoints do not require authentication. If you open them publicly, make sure to enforce your own rate limits.
+The endpoints do not require authentication.
+
+Machine-readable and agent-oriented discovery:
+
+- OpenAPI 3.1: [`/openapi.json`](/openapi.json)
+- Well-known OpenAPI redirect: [`/.well-known/openapi.json`](/.well-known/openapi.json)
+- Agent guide: [`/llms.txt`](/llms.txt)
+
+## Units and risk methodology
+
+Pollen values are modeled Ambee concentrations in grains/m³. Category risk labels are calculated by Pollen Monitor using the [National Allergy Bureau (NAB) ranges](https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts):
+
+| Category | Low | Moderate | High | Very High |
+|----------|-----|----------|------|-----------|
+| Weed/Ragweed | 1–9 | 10–49 | 50–499 | 500+ |
+| Grass | 1–4 | 5–19 | 20–199 | 200+ |
+| Tree | 1–14 | 15–89 | 90–1499 | 1500+ |
+
+Zero is reported as `None`. When a category contains multiple species, its risk is based on the highest individual species value rather than the category sum because the NAB ranges apply per allergen.
 
 ## `GET /api/cities`
 
@@ -10,6 +28,30 @@ Alphabetised list of supported cities.
 
 ```http
 GET ${NEXT_PUBLIC_BASE_URL}/api/cities
+```
+
+## `GET /api/available-dates`
+
+Returns UTC dates with pollen observations, newest first.
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/available-dates
+```
+
+```json
+{ "dates": ["2026-08-26", "2026-08-25"] }
+```
+
+## `GET /api/latest-date`
+
+Returns the latest UTC pollen observation date.
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/latest-date
+```
+
+```json
+{ "date": "2026-08-26" }
 ```
 
 ```json
@@ -42,9 +84,14 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco&date=2024-04-14
       "grass": 4,
       "weed": 0,
       "total": 16,
-      "risk_tree": "low",
-      "risk_grass": "low",
-      "risk_weed": null,
+      "species": {
+        "Tree": { "Oak": 8, "Pine": 4 },
+        "Grass": { "Grass": 4 },
+        "Weed": { "Ragweed": 0 }
+      },
+      "risk_tree": "Low",
+      "risk_grass": "Low",
+      "risk_weed": "None",
       "timezone": "America/Los_Angeles"
     }
   ]
@@ -63,7 +110,22 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
 {
   "city": "san-francisco",
   "rows": [
-    { "date": "2024-04-14", "avg_tree": 19, "avg_grass": 7, "avg_weed": 2, "avg_total": 28, "timezone": "America/Los_Angeles" }
+    {
+      "date": "2024-04-14",
+      "avg_tree": 19,
+      "avg_grass": 7,
+      "avg_weed": 2,
+      "avg_total": 28,
+      "species": {
+        "Tree": { "Oak": 12, "Pine": 7 },
+        "Grass": { "Grass": 7 },
+        "Weed": { "Ragweed": 2 }
+      },
+      "risk_tree": "Low",
+      "risk_grass": "Moderate",
+      "risk_weed": "Low",
+      "timezone": "America/Los_Angeles"
+    }
   ]
 }
 ```
@@ -99,9 +161,9 @@ GET /api/pollen-range?city=denver&from=2024-04-10&to=2024-04-15
       "tree": 32,
       "grass": 5,
       "weed": 0,
-      "risk_tree": "moderate",
-      "risk_grass": "low",
-      "risk_weed": null,
+      "risk_tree": "Moderate",
+      "risk_grass": "Moderate",
+      "risk_weed": "None",
       "tz": "America/Denver",
       "total": 37,
       "timezone": "America/Denver"
@@ -139,9 +201,45 @@ Errors return a `400` with an explanatory message, for example:
 { "error": "Parameter 'from' must be before 'to'" }
 ```
 
+## `GET /api/map-data`
+
+Returns compact cross-city GeoJSON for a UTC date. Use `date=latest`, omit `date`, or provide `YYYY-MM-DD`. Each city feature contains category values, NAB risks, a headline `ragweed` and `risk_ragweed` slice, coordinates, timezone, and a three-day series. Full species blobs are intentionally omitted from this endpoint.
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/map-data?date=latest
+```
+
+```json
+{
+  "type": "FeatureCollection",
+  "date": "2026-08-26",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "city": "berkeley",
+        "tree": 24,
+        "grass": 4,
+        "weed": 34,
+        "ragweed": 34,
+        "risk_tree": "Moderate",
+        "risk_grass": "Low",
+        "risk_weed": "Moderate",
+        "risk_ragweed": "Moderate",
+        "series": []
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-122.27, 37.87]
+      }
+    }
+  ]
+}
+```
+
 ## `GET /api/weather`
 
-Daily weather and air-quality observations (OpenWeather) collected alongside pollen data.
+Daily weather and air-quality observations (OpenWeather) collected alongside pollen data. Fields unavailable from the provider are omitted instead of being returned as `null`.
 
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|
@@ -170,7 +268,6 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/weather?city=denver&date=2026-07-08
       "wind_deg": 180,
       "precip_mm": 0,
       "uvi": 8.1,
-      "weather_main": "Clear",
       "aqi": 2,
       "aqi_pm2_5": 6.4,
       "aqi_o3": 92.3
@@ -207,7 +304,12 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver
       "tree": 3,
       "weed": 41,
       "total": 52,
-      "risk_grass": "Low",
+      "species": {
+        "Tree": { "Oak": 3 },
+        "Grass": { "Grass": 8 },
+        "Weed": { "Ragweed": 41 }
+      },
+      "risk_grass": "Moderate",
       "risk_tree": "Low",
       "risk_weed": "Moderate"
     }
@@ -219,4 +321,4 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver
 
 ---
 
-Extend the handlers under `app/api/` if you need additional slices or metrics.
+For complete parameter and response schemas, use the [OpenAPI document](/openapi.json).

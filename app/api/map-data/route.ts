@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { query } from '@/lib/db';
+import { numericSpeciesEntriesSql, query } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { buildMapFeatureCollection, type DailyCityRow } from '@/lib/mapData';
 
@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   let date = searchParams.get('date');
   if (date && date !== 'latest' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return new Response(JSON.stringify({ error: 'date required (YYYY-MM-DD or latest)' }), { status: 400 });
+    return Response.json({ error: 'date required (YYYY-MM-DD or latest)' }, { status: 400 });
   }
 
   try {
@@ -32,15 +32,25 @@ export async function GET(req: NextRequest) {
     const { rows } = await query<DailyCityRow>(
       `SELECT city_slug,
               ((ts AT TIME ZONE 'UTC')::date)::text AS date,
-              max(tree) AS tree,
-              max(grass) AS grass,
-              max(weed) AS weed,
-              array_remove(array_agg(DISTINCT risk_tree), NULL) AS risk_tree,
-              array_remove(array_agg(DISTINCT risk_grass), NULL) AS risk_grass,
-              array_remove(array_agg(DISTINCT risk_weed), NULL) AS risk_weed,
-              min(tz) AS tz
-       FROM pollen_readings_hourly
-       WHERE ts >= $1 AND ts < $2
+              max(reading.tree) AS tree,
+              max(reading.grass) AS grass,
+              max(reading.weed) AS weed,
+              max(species_max.tree) AS max_species_tree,
+              max(species_max.grass) AS max_species_grass,
+              max(species_max.weed) AS max_species_weed,
+              max(species_max.ragweed) AS ragweed,
+              min(reading.tz) AS tz
+       FROM pollen_readings_hourly AS reading
+       LEFT JOIN LATERAL (
+         SELECT (max(item.value::numeric) FILTER (WHERE lower(category.key) = 'tree'))::float8 AS tree,
+                (max(item.value::numeric) FILTER (WHERE lower(category.key) = 'grass'))::float8 AS grass,
+                (max(item.value::numeric) FILTER (WHERE lower(category.key) = 'weed'))::float8 AS weed,
+                (max(item.value::numeric) FILTER (
+                  WHERE lower(category.key) = 'weed' AND lower(item.key) = 'ragweed'
+                ))::float8 AS ragweed
+         FROM ${numericSpeciesEntriesSql('reading.species')}
+       ) AS species_max ON true
+       WHERE reading.ts >= $1 AND reading.ts < $2
        GROUP BY 1, 2
        ORDER BY 1, 2`,
       [dayStart, dayEnd],
@@ -60,10 +70,18 @@ export async function GET(req: NextRequest) {
       ? 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
       : 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600';
 
-    return Response.json({ ...fc, date }, { headers: { 'cache-control': cacheControl } });
+    return Response.json(
+      { ...fc, date },
+      {
+        headers: {
+          'cache-control': cacheControl,
+          'content-type': 'application/geo+json',
+        },
+      },
+    );
   } catch (e: any) {
     console.error('[map-data] error', e);
-    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
+    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }
 }
 

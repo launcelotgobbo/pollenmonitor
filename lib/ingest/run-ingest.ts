@@ -101,8 +101,12 @@ export async function runIngestJob({
     dryRun,
     ...summary,
     totalDaysStored: summary.totalRecordsStored,
-    cityResults,
-    weather: weatherSummary ? { summary: weatherSummary, cityResults: weatherResults } : null,
+    // Stacks stay in the per-city console logs above; persisting them would put
+    // server file paths into ingest_logs rows.
+    cityResults: cityResults.map(({ stack, ...rest }) => rest),
+    weather: weatherSummary
+      ? { summary: weatherSummary, cityResults: weatherResults.map(({ stack, ...rest }) => rest) }
+      : null,
     status,
   };
 

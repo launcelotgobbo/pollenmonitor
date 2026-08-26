@@ -3,10 +3,12 @@ import { query, TS_ISO } from '@/lib/db';
 import {
   AggregatedCityDays,
   HourlyRow,
+  ValidationError,
   aggregateDaily,
   normalizeCityList,
   parseDate,
 } from '@/lib/pollenRange';
+import { withNabRisk } from '@/lib/risk';
 
 function toIsoString(date: Date): string {
   return date.toISOString();
@@ -18,10 +20,7 @@ export async function GET(req: NextRequest) {
     const fromDate = parseDate(searchParams.get('from'), 'from');
     const toDate = parseDate(searchParams.get('to'), 'to');
     if (fromDate >= toDate) {
-      return new Response(JSON.stringify({ error: "Parameter 'from' must be before 'to'" }), {
-        status: 400,
-        headers: { 'content-type': 'application/json' },
-      });
+      return Response.json({ error: "Parameter 'from' must be before 'to'" }, { status: 400 });
     }
 
     const fromIso = toIsoString(fromDate);
@@ -35,8 +34,7 @@ export async function GET(req: NextRequest) {
     const params: any[] = cityList.length > 0 ? [fromIso, toIso, cityList, limit] : [fromIso, toIso, limit];
     const limitPlaceholder = `$${params.length}`;
     const { rows } = await query<HourlyRow>(
-      `SELECT city_slug, ${TS_ISO} AS ts, tree, grass, weed,
-              risk_tree, risk_grass, risk_weed, tz
+      `SELECT city_slug, ${TS_ISO} AS ts, tree, grass, weed, tz, species
        FROM pollen_readings_hourly
        WHERE ts >= $1 AND ts < $2 ${cityFilter}
        ORDER BY ts ASC
@@ -55,7 +53,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const mapped = rows.map((row) => ({
+    const mapped = rows.map((row) => withNabRisk({
       ...row,
       total:
         (typeof row.tree === 'number' ? row.tree : 0) +
@@ -71,13 +69,14 @@ export async function GET(req: NextRequest) {
       aggregate: 'none',
       rows: mapped,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[pollen-range] error', error);
-    const message = error instanceof Error ? error.message : 'Unexpected server error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
-      headers: { 'content-type': 'application/json' },
-    });
+    // Only validation messages are safe to echo; database errors can carry
+    // credentials, hostnames, and schema details.
+    if (error instanceof ValidationError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }
 }
 
