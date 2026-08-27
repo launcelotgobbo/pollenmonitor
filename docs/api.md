@@ -1,6 +1,6 @@
 # Pollen Monitor API
 
-Version 2.2.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
+Version 2.2.1 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
 
 The endpoints do not require authentication and send `Access-Control-Allow-Origin: *`
 so browser applications can read them cross-origin. Successful public data
@@ -307,7 +307,7 @@ The date-only variant returns a compact per-city snapshot (`city_slug`, `date`, 
 
 ## `GET /api/forecast`
 
-48-hour hourly pollen forecast for one city (Ambee v3). Responses are cached server-side for up to 6 hours per city, and upstream fetches stop once the daily Ambee quota is nearly exhausted, in which case the most recent cached rows are served with `stale: true`.
+48-hour hourly pollen forecast for one city (Ambee v3). Responses are cached server-side for up to 6 hours per city. If an upstream refresh fails while cached rows exist, the endpoint serves those rows with `stale: true` instead of returning `500`. Upstream fetches also stop once the daily Ambee quota is nearly exhausted.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|

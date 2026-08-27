@@ -174,7 +174,7 @@ GET ${baseUrl}/api/latest-date`}
 {`GET ${baseUrl}/api/forecast?city=denver`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Hourly pollen forecast for the next 48 hours (Ambee), including species when supplied by the provider. Responses are cached server-side for up to 6 hours per city; when the daily provider quota is nearly exhausted the most recent cached rows are returned with <code>stale: true</code> and <code>quotaExhausted: true</code>.
+          Hourly pollen forecast for the next 48 hours (Ambee), including species when supplied by the provider. Responses are cached server-side for up to 6 hours per city. If an upstream refresh fails, the most recent cached rows are returned with <code>stale: true</code>. When the daily provider quota blocks a refresh, the response also includes <code>quotaExhausted: true</code>.
         </p>
       </section>
 

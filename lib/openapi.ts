@@ -336,7 +336,7 @@ export const OPENAPI_DOCUMENT = {
         operationId: 'getPollenForecast',
         summary: 'Get a city’s 48-hour pollen forecast',
         description:
-          'Returns cached or fresh Ambee hourly forecasts with species values when available and NAB risk labels.',
+          'Returns cached or fresh Ambee hourly forecasts with species values when available and NAB risk labels. If an upstream refresh fails while cached rows exist, returns the cache with stale=true instead of failing the request.',
         tags: ['Pollen'],
         'x-codeSamples': codeSamples('/api/forecast?city=berkeley'),
         parameters: [{ $ref: '#/components/parameters/RequiredCity' }],
@@ -350,6 +350,10 @@ export const OPENAPI_DOCUMENT = {
                   success: {
                     summary: 'Cached hourly forecast',
                     value: API_EXAMPLES.forecast,
+                  },
+                  staleFallback: {
+                    summary: 'Stale cache served after an upstream refresh failure',
+                    value: API_EXAMPLES.forecastFallback,
                   },
                 },
               },
@@ -767,7 +771,11 @@ export const OPENAPI_DOCUMENT = {
         properties: {
           city: { type: 'string' },
           source: { type: 'string', enum: ['cache', 'ambee'] },
-          stale: { type: 'boolean' },
+          stale: {
+            type: 'boolean',
+            description:
+              'True when cached rows are served because refresh was blocked or failed.',
+          },
           quotaExhausted: { type: 'boolean' },
           fetchedAt: { type: ['string', 'null'], format: 'date-time' },
           rows: {

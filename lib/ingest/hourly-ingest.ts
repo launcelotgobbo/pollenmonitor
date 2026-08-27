@@ -1,6 +1,7 @@
 import { ambeeHourlyRange } from './ambee';
 import { upsertPollenHourlyBatch } from '@/lib/db';
 import { ingestConcurrency, mapWithConcurrency } from './concurrency';
+import { toStoredPollenRow } from './pollen-row';
 import type { City } from './cities';
 
 export type CityIngestResult = {
@@ -48,19 +49,7 @@ export async function ingestHourlyForCities({
       const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO);
       if (!dryRun) {
         await upsertPollenHourlyBatch(
-          hours.map((h) => ({
-            city_slug: city.slug,
-            ts: h.ts,
-            tz: h.tz ?? null,
-            grass: h.grass ?? null,
-            tree: h.tree ?? null,
-            weed: h.weed ?? null,
-            total: (h.grass ?? 0) + (h.tree ?? 0) + (h.weed ?? 0),
-            risk_grass: h.risk_grass ?? null,
-            risk_tree: h.risk_tree ?? null,
-            risk_weed: h.risk_weed ?? null,
-            species: h.species ?? null,
-          })),
+          hours.map((hour) => toStoredPollenRow(city.slug, hour)),
         );
       }
       wrote++;

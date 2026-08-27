@@ -92,7 +92,7 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
-  assert.equal(API_VERSION, '2.2.0');
+  assert.equal(API_VERSION, '2.2.1');
   assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');
@@ -148,6 +148,12 @@ test('OpenAPI reflects the exact discovery, forecast, and map shapes', () => {
     '#/components/schemas/ForecastPollen',
   );
   assert.ok(OPENAPI_DOCUMENT.components.schemas.ForecastPollen.required.includes('tz'));
+  assert.equal(
+    OPENAPI_DOCUMENT.paths['/api/forecast'].get.responses['200'].content[
+      'application/json'
+    ].examples.staleFallback.value.stale,
+    true,
+  );
   const mapProperties =
     OPENAPI_DOCUMENT.components.schemas.MapFeatureCollection.properties.features.items
       .properties.properties;

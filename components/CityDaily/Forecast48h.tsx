@@ -88,7 +88,9 @@ export default function Forecast48h({ city }: { city: string }) {
         </div>
         {data?.stale && (
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-            {data.quotaExhausted ? 'Daily API quota reached; showing cached data' : 'Cached data'}
+            {data.quotaExhausted
+              ? 'Daily API quota reached; showing cached data'
+              : 'Live refresh unavailable; showing cached data'}
           </span>
         )}
       </div>

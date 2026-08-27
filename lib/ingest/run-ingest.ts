@@ -2,6 +2,7 @@ import { logIngest, logProviderUsage } from '@/lib/db';
 import type { City } from '@/lib/ingest/cities';
 import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
 import { ingestWeatherForCities, type WeatherIngestSummary, type CityWeatherResult } from '@/lib/ingest/weather-daily';
+import { ambeeDailyQuota, openweatherDailyQuota } from '@/lib/provider-quota';
 
 export type IngestJobOptions = {
   job: string;
@@ -24,8 +25,8 @@ export async function runIngestJob({
   dryRun = false,
   includeWeather = true,
 }: IngestJobOptions): Promise<{ result: Record<string, any>; httpStatus: number }> {
-  const ambeeQuota = Number(process.env.AMBEE_DAILY_QUOTA ?? '200');
-  const openweatherQuota = Number(process.env.OPENWEATHER_DAILY_QUOTA ?? '1000');
+  const ambeeQuota = ambeeDailyQuota();
+  const openweatherQuota = openweatherDailyQuota();
 
   const { summary, cityResults } = await ingestHourlyForCities({
     cities,

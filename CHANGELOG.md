@@ -1,5 +1,14 @@
 # API Changelog
 
+## 2.2.1 — 2026-08-26
+
+### Fixed
+
+- Forecast requests now serve existing cached rows with `stale: true` when an
+  Ambee refresh fails; `500` is reserved for failures with no usable cache.
+- The map control panel now has clearer grouping and instructions without
+  stray separator bullets.
+
 ## 2.2.0 — 2026-08-26
 
 ### Added

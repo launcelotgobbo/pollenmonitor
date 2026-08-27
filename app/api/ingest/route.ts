@@ -17,6 +17,7 @@ import { logIngest } from '@/lib/db';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import type { City } from '@/lib/ingest/cities';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
+import { ambeeDailyQuota } from '@/lib/provider-quota';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 // Ambee Pollen API v3 history only covers the past 48 hours
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
     cityCount: cities.length,
     window: { from: fromISO, to: toISO },
     dryRun,
-    ambeeQuota: Number(process.env.AMBEE_DAILY_QUOTA ?? '200'),
+    ambeeQuota: ambeeDailyQuota(),
   });
 
   const { result, httpStatus } = await runIngestJob({

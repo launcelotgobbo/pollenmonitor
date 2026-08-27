@@ -32,7 +32,12 @@ export default function MapView() {
         const list = await listRes.json();
         const all: string[] = Array.isArray(list?.dates) ? list.dates : [];
         const today = new Date().toISOString().slice(0, 10);
-        setDates(all.filter((d) => d <= today));
+        const available = all.filter((candidate) => candidate <= today);
+        setDates((current) =>
+          [...new Set([...available, ...current])].sort((a, b) =>
+            b.localeCompare(a),
+          ),
+        );
       } catch (e: any) {
         setError(e?.message || 'Failed to load available dates');
       } finally {
@@ -47,19 +52,28 @@ export default function MapView() {
       <MapCanvas
         date={date}
         pollenType={pollenType}
-        onDateResolved={(resolved) => setDate((prev) => prev || resolved)}
+        onDateResolved={(resolved) => {
+          setDate((current) => current || resolved);
+          setDates((current) =>
+            current.includes(resolved)
+              ? current
+              : [resolved, ...current].sort((a, b) => b.localeCompare(a)),
+          );
+        }}
       />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 py-4 sm:px-6">
-        <div className="pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-2xl bg-slate-900/75 px-4 py-3 text-slate-50 shadow-xl backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="flex flex-col gap-2 text-xs font-medium uppercase tracking-wide text-slate-200 sm:flex-row sm:items-center sm:gap-3 sm:text-sm">
-              <span className="text-slate-300">Date</span>
+        <div className="pointer-events-auto flex w-full max-w-5xl flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/85 p-4 text-slate-50 shadow-2xl backdrop-blur-md lg:flex-row lg:items-end">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Observation date
+              </span>
               <select
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 disabled={!dates.length}
-                className="min-w-[160px] rounded-xl border-none bg-slate-800/80 px-3 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-slate-800/40"
+                className="h-10 min-w-[170px] rounded-xl border border-white/10 bg-slate-800/90 px-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-slate-800/40"
               >
                 {(dates.length ? dates : date ? [date] : []).map((d) => (
                   <option key={d} value={d}>
@@ -69,45 +83,56 @@ export default function MapView() {
               </select>
             </label>
 
-            <div
-              role="radiogroup"
-              aria-label="Pollen type"
-              className="flex items-center gap-1 rounded-xl bg-slate-800/80 p-1"
-            >
-              {POLLEN_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={pollenType === t.value}
-                  onClick={() => setPollenType(t.value)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition sm:text-sm ${
-                    pollenType === t.value
-                      ? 'bg-sky-500 text-white shadow'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Pollen category
+              </span>
+              <div
+                role="radiogroup"
+                aria-label="Pollen category"
+                className="grid h-10 grid-cols-4 gap-1 rounded-xl border border-white/10 bg-slate-800/90 p-1"
+              >
+                {POLLEN_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={pollenType === type.value}
+                    onClick={() => setPollenType(type.value)}
+                    className={`rounded-lg px-2 text-xs font-semibold transition sm:px-3 sm:text-sm ${
+                      pollenType === type.value
+                        ? 'bg-sky-500 text-white shadow-sm'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 text-xs text-slate-200 sm:text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>Hover city for daily maximum data</span>
-              <span>•</span>
-              <span>Tap to open details</span>
-              <span>•</span>
-              <Link
-                href="/docs/api"
-                className="underline decoration-slate-400 underline-offset-2 transition hover:text-white"
-              >
-                API / MCP docs
-              </Link>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-white/10 pt-3 text-xs lg:w-56 lg:flex-col lg:items-start lg:justify-start lg:border-l lg:border-t-0 lg:pb-0.5 lg:pl-4 lg:pt-0">
+            <div className="leading-5 text-slate-300">
+              <p>Hover for daily maximum data</p>
+              <p className="text-slate-400">Tap a city to open details</p>
             </div>
-            {loading && <span className="text-[11px] uppercase tracking-wide text-slate-300">Loading map data…</span>}
-            {error && <span className="text-[11px] uppercase tracking-wide text-rose-200">{error}</span>}
+            <Link
+              href="/docs/api"
+              className="inline-flex items-center whitespace-nowrap rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-sky-300/50 hover:bg-sky-400/10 hover:text-white"
+            >
+              API &amp; MCP docs
+            </Link>
+            {loading && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Loading map data…
+              </span>
+            )}
+            {error && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+                {error}
+              </span>
+            )}
           </div>
         </div>
       </div>
