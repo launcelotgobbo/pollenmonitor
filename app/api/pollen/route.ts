@@ -1,18 +1,26 @@
 import { NextRequest } from 'next/server';
 import {
+  ApiValidationError,
+  parseCalendarDateParameter,
+  validationErrorResponse,
+} from '@/lib/api-validation';
+import { dataErrorResponse } from '@/lib/api-errors';
+import {
   resolveCity,
   unsupportedCityResponse,
   UnsupportedCityError,
 } from '@/lib/cities';
 import { query } from '@/lib/db';
-import { getDailyPollenRows, getHourlyPollenRows, utcDayWindow } from '@/lib/pollen';
+import { utcDayWindow } from '@/lib/date';
+import { getDailyPollenRows, getHourlyPollenRows } from '@/lib/pollen';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date');
+  const dateParam = searchParams.get('date');
   const cityParam = searchParams.get('city');
 
   try {
+    const date = parseCalendarDateParameter(dateParam);
     const city = cityParam?.trim() ? (await resolveCity(cityParam)).slug : null;
 
     if (city && date) {
@@ -52,11 +60,10 @@ export async function GET(req: NextRequest) {
     if (err instanceof UnsupportedCityError) {
       return unsupportedCityResponse(err);
     }
-    console.error('[pollen] error', err);
-    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' },
-    });
+    if (err instanceof ApiValidationError) {
+      return validationErrorResponse(err);
+    }
+    return dataErrorResponse('pollen', err);
   }
 }
 

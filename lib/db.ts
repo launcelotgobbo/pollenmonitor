@@ -3,8 +3,58 @@ import { createPostgresPoolConfig } from '@/lib/postgres-config';
 
 const pool = new Pool(createPostgresPoolConfig());
 
+export type DatabaseFailureKind = 'connection' | 'query';
+
+const CONNECTION_ERROR_CODES = new Set([
+  '3D000',
+  '28P01',
+  '53300',
+  '57P01',
+  '57P02',
+  '57P03',
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+]);
+
+function errorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
+export function classifyDatabaseError(error: unknown): DatabaseFailureKind {
+  const code = errorCode(error);
+  return code?.startsWith('08') || (code && CONNECTION_ERROR_CODES.has(code))
+    ? 'connection'
+    : 'query';
+}
+
+export class DatabaseOperationError extends Error {
+  constructor(
+    readonly kind: DatabaseFailureKind,
+    readonly code: string | null,
+    cause: unknown,
+  ) {
+    super(`Database ${kind} failed${code ? ` (${code})` : ''}`, { cause });
+    this.name = 'DatabaseOperationError';
+  }
+}
+
 async function q<T extends QueryResultRow = QueryResultRow>(text: string, params?: any[]): Promise<QueryResult<T>> {
-  return pool.query<T>(text, params);
+  try {
+    return await pool.query<T>(text, params);
+  } catch (error) {
+    throw new DatabaseOperationError(
+      classifyDatabaseError(error),
+      errorCode(error),
+      error,
+    );
+  }
 }
 
 export const query = q;

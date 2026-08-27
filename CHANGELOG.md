@@ -1,5 +1,15 @@
 # API Changelog
 
+## 2.0.1 — 2026-08-26
+
+### Fixed
+
+- Date parameters now reject malformed and impossible calendar dates with a
+  `400` response before any database query runs.
+- Database connection and query failures are distinguished in private
+  structured logs while clients receive one generic error without internal
+  configuration hints.
+
 ## 2.0.0 — 2026-08-26
 
 ### Breaking

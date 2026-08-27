@@ -1,16 +1,21 @@
 import { NextRequest } from 'next/server';
+import {
+  ApiValidationError,
+  parseCalendarDateParameter,
+  validationErrorResponse,
+} from '@/lib/api-validation';
+import { dataErrorResponse } from '@/lib/api-errors';
 import { numericSpeciesEntriesSql, query } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { buildMapFeatureCollection, type DailyCityRow } from '@/lib/mapData';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  let date = searchParams.get('date');
-  if (date && date !== 'latest' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return Response.json({ error: 'date required (YYYY-MM-DD or latest)' }, { status: 400 });
-  }
+  const dateParam = searchParams.get('date');
 
   try {
+    let date =
+      dateParam === 'latest' ? dateParam : parseCalendarDateParameter(dateParam);
     if (!date || date === 'latest') {
       // Resolve server-side so the map can render without first fetching the
       // date list; capped at today to ignore any future-dated rows.
@@ -79,9 +84,11 @@ export async function GET(req: NextRequest) {
         },
       },
     );
-  } catch (e: any) {
-    console.error('[map-data] error', e);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+  } catch (e: unknown) {
+    if (e instanceof ApiValidationError) {
+      return validationErrorResponse(e);
+    }
+    return dataErrorResponse('map-data', e);
   }
 }
 

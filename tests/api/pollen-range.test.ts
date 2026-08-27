@@ -14,7 +14,16 @@ test('parseDate accepts YYYY-MM-DD and coerces to midnight UTC within available 
 });
 
 test('parseDate rejects invalid values', () => {
-  assert.throws(() => parseDate('not-a-date', 'from'), /Invalid date value/);
+  assert.throws(() => parseDate('not-a-date', 'from'), /Invalid parameter 'from'/);
+  assert.throws(() => parseDate('2026-02-30', 'from'), /Invalid parameter 'from'/);
+  assert.throws(() => parseDate('2026-08-26T12:30', 'from'), /Invalid parameter 'from'/);
+});
+
+test('parseDate accepts RFC 3339 timestamps with explicit timezones', () => {
+  assert.equal(
+    parseDate('2026-08-26T12:30:00-07:00', 'from').toISOString(),
+    '2026-08-26T19:30:00.000Z',
+  );
 });
 
 test('normalizeCityList trims, lowercases and filters empty values', () => {

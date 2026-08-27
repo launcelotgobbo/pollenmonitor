@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { dataErrorResponse } from '@/lib/api-errors';
 import { query, TS_ISO } from '@/lib/db';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 
@@ -19,9 +20,8 @@ export async function GET(req: NextRequest) {
       [limit],
     );
     return Response.json({ logs: rows });
-  } catch (e: any) {
-    console.error('[ingest-logs] error', e);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+  } catch (e: unknown) {
+    return dataErrorResponse('ingest-logs', e);
   }
 }
 

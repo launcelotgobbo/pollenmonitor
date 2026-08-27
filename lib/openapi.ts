@@ -159,16 +159,26 @@ export const OPENAPI_DOCUMENT = {
             name: 'from',
             in: 'query',
             required: true,
-            description: 'Inclusive start date or ISO timestamp.',
-            schema: { type: 'string' },
+            description: 'Inclusive start date or RFC 3339 timestamp.',
+            schema: {
+              oneOf: [
+                { $ref: '#/components/schemas/Date' },
+                { $ref: '#/components/schemas/DateTime' },
+              ],
+            },
             example: '2026-08-20',
           },
           {
             name: 'to',
             in: 'query',
             required: true,
-            description: 'Exclusive end date or ISO timestamp.',
-            schema: { type: 'string' },
+            description: 'Exclusive end date or RFC 3339 timestamp.',
+            schema: {
+              oneOf: [
+                { $ref: '#/components/schemas/Date' },
+                { $ref: '#/components/schemas/DateTime' },
+              ],
+            },
             example: '2026-08-27',
           },
           {

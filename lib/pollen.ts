@@ -1,4 +1,5 @@
 import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
+import { utcDayWindow } from '@/lib/date';
 import type { DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
 import { withNabRisk } from '@/lib/risk';
 import { normalizeSpecies } from '@/lib/species';
@@ -12,13 +13,6 @@ export type DailyPollenDbRow = {
   timezone: string | null;
   species: unknown;
 };
-
-export function utcDayWindow(date: string): { dayStart: string; dayEnd: string } {
-  const dayStart = new Date(`${date}T00:00:00Z`).toISOString();
-  const nextDay = new Date(`${date}T00:00:00Z`);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  return { dayStart, dayEnd: nextDay.toISOString() };
-}
 
 export async function getHourlyPollenRows(
   city: string,

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { dataErrorResponse } from '@/lib/api-errors';
 import {
   resolveCity,
   unsupportedCityResponse,
@@ -77,8 +78,7 @@ export async function GET(req: NextRequest) {
     if (e instanceof UnsupportedCityError) {
       return unsupportedCityResponse(e);
     }
-    console.error('[city-type-matrix] error', e);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+    return dataErrorResponse('city-type-matrix', e);
   }
 }
 
