@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server';
+import { dataErrorResponse } from '@/lib/api-errors';
+import { validationErrorResponse } from '@/lib/api-validation';
 import {
   resolveCities,
   unsupportedCityResponse,
@@ -123,10 +125,9 @@ export async function GET(req: NextRequest) {
     // Only validation messages are safe to echo; database errors can carry
     // credentials, hostnames, and schema details.
     if (error instanceof ValidationError) {
-      return Response.json({ error: error.message }, { status: 400 });
+      return validationErrorResponse(error);
     }
-    console.error('[pollen-range] error', error);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+    return dataErrorResponse('pollen-range', error);
   }
 }
 

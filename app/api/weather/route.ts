@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server';
 import {
+  ApiValidationError,
+  parseCalendarDateParameter,
+  validationErrorResponse,
+} from '@/lib/api-validation';
+import { dataErrorResponse } from '@/lib/api-errors';
+import {
   resolveCity,
   unsupportedCityResponse,
   UnsupportedCityError,
@@ -29,8 +35,9 @@ const cityWeatherRowSql = `
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const cityParam = searchParams.get('city');
-  const date = searchParams.get('date');
+  const dateParam = searchParams.get('date');
   try {
+    const date = parseCalendarDateParameter(dateParam);
     const city = cityParam?.trim() ? (await resolveCity(cityParam)).slug : null;
 
     if (city && date) {
@@ -73,8 +80,10 @@ export async function GET(req: NextRequest) {
     if (err instanceof UnsupportedCityError) {
       return unsupportedCityResponse(err);
     }
-    console.error('[weather] error', err);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+    if (err instanceof ApiValidationError) {
+      return validationErrorResponse(err);
+    }
+    return dataErrorResponse('weather', err);
   }
 }
 

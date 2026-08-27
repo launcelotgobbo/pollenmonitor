@@ -31,6 +31,28 @@ export default function ChangelogPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
             August 26, 2026
           </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.0.1</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Fixed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Malformed and impossible date parameters now return <code>400</code>{' '}
+              before querying the database.
+            </li>
+            <li>
+              Database connection and query failures are distinguished in private logs,
+              while public errors no longer expose configuration hints.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            August 26, 2026
+          </p>
           <h2 className="mt-1 text-2xl font-semibold">2.0.0</h2>
         </div>
         <div className="space-y-3 text-sm leading-6 text-slate-600">

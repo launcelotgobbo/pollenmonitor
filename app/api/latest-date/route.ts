@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { dataErrorResponse } from '@/lib/api-errors';
 import { query } from '@/lib/db';
 
 export async function GET(_req: NextRequest) {
@@ -11,9 +12,8 @@ export async function GET(_req: NextRequest) {
       { date: latest },
       { headers: { 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600' } },
     );
-  } catch (e: any) {
-    console.error('[latest-date] error:', e);
-    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
+  } catch (e: unknown) {
+    return dataErrorResponse('latest-date', e);
   }
 }
 

@@ -74,10 +74,20 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
     OPENAPI_DOCUMENT.components.schemas.PollenRangeResponse.properties.rows.items.$ref,
     '#/components/schemas/PollenRangeRow',
   );
+  for (const name of ['from', 'to']) {
+    const parameter = operation.parameters.find((candidate: any) => candidate.name === name) as
+      | { schema: { oneOf: readonly unknown[] } }
+      | undefined;
+    assert.ok(parameter);
+    assert.deepEqual(parameter.schema.oneOf, [
+      { $ref: '#/components/schemas/Date' },
+      { $ref: '#/components/schemas/DateTime' },
+    ]);
+  }
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
-  assert.equal(API_VERSION, '2.0.0');
+  assert.equal(API_VERSION, '2.0.1');
   assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');

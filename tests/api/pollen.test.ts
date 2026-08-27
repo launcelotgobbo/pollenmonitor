@@ -33,6 +33,19 @@ test('pollen API rejects unsupported cities with discovery guidance', async () =
   assert.match(body.error, /Unsupported city 'atlantis'/);
 });
 
+test('pollen API rejects malformed and impossible calendar dates', async () => {
+  for (const date of ['notadate', '2026-02-30', '2026-8-26']) {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/pollen?city=berkeley&date=${date}`),
+    );
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "Invalid parameter 'date': expected a valid date in YYYY-MM-DD format",
+    });
+  }
+});
+
 test('daily pollen rows use the canonical measurement names', () => {
   const [row] = toDailyPollenRows([
     {

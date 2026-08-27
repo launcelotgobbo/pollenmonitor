@@ -1,12 +1,18 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import {
+  ApiValidationError,
+  parseCalendarDateParameter,
+  parseDateTimeParameter,
+  validationErrorResponse,
+} from '@/lib/api-validation';
+import {
   getSupportedCities,
   resolveCity,
   unsupportedCityResponse,
   UnsupportedCityError,
 } from '@/lib/cities';
-import { formatUtcSqlTimestamp, parseUtcDate } from '@/lib/date';
+import { formatUtcSqlTimestamp, parseUtcDate, utcDayWindow } from '@/lib/date';
 import { logIngest } from '@/lib/db';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import type { City } from '@/lib/ingest/cities';
@@ -16,6 +22,34 @@ const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-c
 // Ambee Pollen API v3 history only covers the past 48 hours
 const AMBEE_HISTORY_HOURS = 48;
 
+function requestedWindow(searchParams: URLSearchParams, hoursBack: number) {
+  const explicitFrom = searchParams.get('from');
+  const explicitTo = searchParams.get('to');
+  if (explicitFrom || explicitTo) {
+    return {
+      fromISO: parseDateTimeParameter(explicitFrom, 'from').toISOString(),
+      toISO: parseDateTimeParameter(explicitTo, 'to').toISOString(),
+    };
+  }
+
+  const date = parseCalendarDateParameter(searchParams.get('date'), 'date');
+  if (date) {
+    const { dayStart, dayEnd } = utcDayWindow(date);
+    return {
+      fromISO: formatUtcSqlTimestamp(new Date(dayStart)),
+      toISO: formatUtcSqlTimestamp(new Date(dayEnd)),
+    };
+  }
+
+  const end = new Date();
+  const start = new Date(end);
+  start.setHours(start.getHours() - hoursBack);
+  return {
+    fromISO: formatUtcSqlTimestamp(start),
+    toISO: formatUtcSqlTimestamp(end),
+  };
+}
+
 export async function POST(req: NextRequest) {
   if (!isIngestAuthorized(req)) return unauthorized();
 
@@ -24,28 +58,15 @@ export async function POST(req: NextRequest) {
   const dryRun = searchParams.get('dry') === 'true';
   const includeWeather = searchParams.get('includeWeather') !== 'false';
   const hoursBack = Math.max(1, Math.min(AMBEE_HISTORY_HOURS, Number(searchParams.get('hours') || '48')));
-  const explicitFrom = searchParams.get('from');
-  const explicitTo = searchParams.get('to');
-  const dateParam = searchParams.get('date');
 
   let toISO: string;
   let fromISO: string;
 
-  if (explicitFrom && explicitTo) {
-    fromISO = explicitFrom;
-    toISO = explicitTo;
-  } else if (dateParam) {
-    const start = new Date(`${dateParam}T00:00:00Z`);
-    const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 1);
-    toISO = formatUtcSqlTimestamp(end);
-    fromISO = formatUtcSqlTimestamp(start);
-  } else {
-    const end = new Date();
-    const start = new Date(end);
-    start.setHours(start.getHours() - hoursBack);
-    toISO = formatUtcSqlTimestamp(end);
-    fromISO = formatUtcSqlTimestamp(start);
+  try {
+    ({ fromISO, toISO } = requestedWindow(searchParams, hoursBack));
+  } catch (error) {
+    if (error instanceof ApiValidationError) return validationErrorResponse(error);
+    throw error;
   }
 
   const fromDate = parseUtcDate(fromISO);

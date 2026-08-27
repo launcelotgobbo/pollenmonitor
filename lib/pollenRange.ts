@@ -1,3 +1,4 @@
+import { ApiValidationError, parseDateTimeParameter } from '@/lib/api-validation';
 import { withNabRisk, type PollenRisk } from '@/lib/risk';
 
 export type PollenRangeAggregate = 'none' | 'day';
@@ -36,30 +37,16 @@ export function normalizeCityList(cityParam: string | null): string[] {
     .map((value) => value.toLowerCase());
 }
 
-/** Marks a caller-fixable input problem, so only these messages reach clients. */
-export class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ValidationError';
-  }
-}
+export { ApiValidationError as ValidationError };
 
 export function parseDate(value: string | null, label: string): Date {
-  if (!value) throw new ValidationError(`Missing required parameter '${label}'`);
-  const normalized = value.trim();
-  const isoLike = /\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?/;
-  const candidate = isoLike.test(normalized) ? normalized : `${normalized}T00:00:00Z`;
-  const date = new Date(candidate);
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(`Invalid date value provided for '${label}'`);
-  }
-  return date;
+  return parseDateTimeParameter(value, label);
 }
 
 export function parseAggregate(value: string | null): PollenRangeAggregate {
   if (!value || value === 'none') return 'none';
   if (value === 'day') return 'day';
-  throw new ValidationError("Invalid parameter 'aggregate': expected 'none' or 'day'");
+  throw new ApiValidationError("Invalid parameter 'aggregate': expected 'none' or 'day'");
 }
 
 export function toPollenRangeRows(rows: PollenRangeDbRow[]): PollenRangeRow[] {
