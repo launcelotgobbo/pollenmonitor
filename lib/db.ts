@@ -230,7 +230,11 @@ export async function reserveAmbeeCall({
        SELECT pg_advisory_xact_lock(hashtext('ambee-daily-quota'))
      ),
      usage AS MATERIALIZED (
-       SELECT COALESCE(SUM(ambee_calls), 0)::bigint AS used_before
+       SELECT COALESCE(SUM(ambee_calls), 0)::bigint AS used_before,
+              COALESCE(
+                SUM(ambee_calls) FILTER (WHERE job = 'daily-ingest'),
+                0
+              )::bigint AS scheduled_calls
        FROM ambee_usage_logs, provider_lock
        WHERE job NOT LIKE '%openweather%'
          AND ts >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
@@ -239,7 +243,9 @@ export async function reserveAmbeeCall({
        INSERT INTO ambee_usage_logs (job, job_id, ambee_calls, notes)
        SELECT $1, $2, 1, $5::jsonb
        FROM usage
-       WHERE used_before < $3::bigint - $4::bigint
+       -- Hold capacity for the scheduled run only until it has logged today's calls.
+       WHERE used_before < $3::bigint -
+         CASE WHEN scheduled_calls > 0 THEN 0 ELSE $4::bigint END
        RETURNING true AS reserved
      )
      SELECT EXISTS(SELECT 1 FROM reservation) AS reserved,
