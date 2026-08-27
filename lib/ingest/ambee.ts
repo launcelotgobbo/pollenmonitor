@@ -1,4 +1,4 @@
-import { fetchWithRetry } from '@/lib/http';
+import { fetchWithRetry, type RetryOptions } from '@/lib/http';
 import { withNabRisk } from '@/lib/risk';
 import type { SpeciesBreakdown } from '@/lib/species';
 
@@ -63,8 +63,16 @@ function mapPollenItem(hour: any, responseTz: string | null): AmbeeHourly {
   });
 }
 
-async function fetchPollenList(url: string, label: string): Promise<AmbeeHourly[]> {
-  const res = await fetchWithRetry(url, { headers: headers(), cache: 'no-store' });
+async function fetchPollenList(
+  url: string,
+  label: string,
+  retryOptions?: RetryOptions,
+): Promise<AmbeeHourly[]> {
+  const res = await fetchWithRetry(
+    url,
+    { headers: headers(), cache: 'no-store' },
+    retryOptions,
+  );
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`${label} failed (${res.status}): ${body}`);
@@ -88,7 +96,11 @@ export async function ambeeHourlyRange(
   return fetchPollenList(url, 'Ambee hourly range');
 }
 
-export async function ambeeForecast48h(lat: number, lon: number): Promise<AmbeeHourly[]> {
+export async function ambeeForecast48h(
+  lat: number,
+  lon: number,
+  retryOptions?: RetryOptions,
+): Promise<AmbeeHourly[]> {
   if (isMockMode()) {
     const now = new Date();
     now.setMinutes(0, 0, 0);
@@ -97,5 +109,5 @@ export async function ambeeForecast48h(lat: number, lon: number): Promise<AmbeeH
     return mockHourly(now.toISOString(), end.toISOString());
   }
   const url = `${AMBEE_BASE}/v3/pollen/forecast/48hrs?lat=${lat}&lng=${lon}&locale=true`;
-  return fetchPollenList(url, 'Ambee 48h forecast');
+  return fetchPollenList(url, 'Ambee 48h forecast', retryOptions);
 }

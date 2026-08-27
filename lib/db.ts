@@ -212,16 +212,46 @@ export async function getForecastRows(
   return { rows: res.rows.map(({ fetched_at, ...rest }) => rest), fetchedAt };
 }
 
-// Ambee-only calls made today (UTC); used to keep on-demand forecast
-// fetches inside the daily provider quota.
-export async function getAmbeeCallsTodayUTC(): Promise<number> {
-  const res = await q<{ total: string }>(
-    `SELECT COALESCE(SUM(ambee_calls), 0)::text AS total
-     FROM ambee_usage_logs
-     WHERE job NOT LIKE '%openweather%'
-       AND ts >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
+export async function reserveAmbeeCall({
+  job,
+  jobId,
+  dailyQuota,
+  reserve,
+  notes,
+}: {
+  job: string;
+  jobId: string;
+  dailyQuota: number;
+  reserve: number;
+  notes?: Record<string, any>;
+}): Promise<{ reserved: boolean; usedBefore: number }> {
+  const result = await q<{ reserved: boolean; used_before: string }>(
+    `WITH provider_lock AS MATERIALIZED (
+       SELECT pg_advisory_xact_lock(hashtext('ambee-daily-quota'))
+     ),
+     usage AS MATERIALIZED (
+       SELECT COALESCE(SUM(ambee_calls), 0)::bigint AS used_before
+       FROM ambee_usage_logs, provider_lock
+       WHERE job NOT LIKE '%openweather%'
+         AND ts >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+     ),
+     reservation AS (
+       INSERT INTO ambee_usage_logs (job, job_id, ambee_calls, notes)
+       SELECT $1, $2, 1, $5::jsonb
+       FROM usage
+       WHERE used_before < $3::bigint - $4::bigint
+       RETURNING true AS reserved
+     )
+     SELECT EXISTS(SELECT 1 FROM reservation) AS reserved,
+            usage.used_before::text
+     FROM usage`,
+    [job, jobId, dailyQuota, reserve, notes ? JSON.stringify(notes) : null],
   );
-  return Number(res.rows[0]?.total ?? 0);
+  const row = result.rows[0];
+  return {
+    reserved: Boolean(row?.reserved),
+    usedBefore: Number(row?.used_before ?? 0),
+  };
 }
 
 export async function logIngest(status: string, details: Record<string, any>) {

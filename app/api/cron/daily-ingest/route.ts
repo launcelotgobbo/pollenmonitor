@@ -10,6 +10,7 @@ import {
 } from '@/lib/ingest/schedule';
 import { isBearerAuthorized, isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
+import { ambeeDailyQuota } from '@/lib/provider-quota';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
     window: { from: fromISO, to: toISO },
     cityCount: cities.length,
     source: 'ambee-hourly',
-    ambeeQuota: Number(process.env.AMBEE_DAILY_QUOTA ?? '200'),
+    ambeeQuota: ambeeDailyQuota(),
   });
 
   if (cities.length === 0) {

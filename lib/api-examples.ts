@@ -166,6 +166,30 @@ export const API_EXAMPLES = {
       },
     ],
   },
+  forecastFallback: {
+    city: 'berkeley',
+    source: 'cache',
+    stale: true,
+    fetchedAt: '2026-08-26T03:00:00.000Z',
+    rows: [
+      {
+        ts: '2026-08-26T04:00:00.000Z',
+        tree: 22,
+        grass: 4,
+        weed: 31,
+        total: 57,
+        species: {
+          Tree: { Elm: 22 },
+          Grass: { Grass: 4 },
+          Weed: { Ragweed: 31 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+        tz: 'America/Los_Angeles',
+      },
+    ],
+  },
   mcpForecast: {
     city: 'berkeley',
     source: 'cache',
