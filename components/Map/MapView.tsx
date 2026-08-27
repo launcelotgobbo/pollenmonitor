@@ -95,7 +95,7 @@ export default function MapView() {
 
           <div className="flex flex-col gap-1 text-xs text-slate-200 sm:text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <span>Hover city for current data</span>
+              <span>Hover city for daily maximum data</span>
               <span>•</span>
               <span>Tap to open details</span>
               <span>•</span>

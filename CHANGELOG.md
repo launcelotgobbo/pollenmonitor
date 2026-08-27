@@ -1,5 +1,36 @@
 # API Changelog
 
+## 2.2.0 — 2026-08-26
+
+### Added
+
+- Interactive Swagger UI with safe live `GET` requests.
+- Full OpenAPI success and error examples plus curl, JavaScript, and Python
+  code samples for every operation.
+- Explicit MCP output schemas with validated structured content for every tool.
+- Expanded `/llms.txt` guidance covering tool selection, worked requests,
+  aggregation semantics, response conventions, and error handling.
+- Redocly OpenAPI validation in local tooling and CI.
+
+### Fixed
+
+- The OpenAPI forecast row schema now reflects nullable totals, the `tz`
+  field, and the complete map feature properties.
+
+## 2.1.0 — 2026-08-26
+
+### Added
+
+- Public read-only REST routes now support browser clients with wildcard CORS.
+- Map GeoJSON and the map UI identify values as daily category maxima.
+- Successful public data responses use a five-minute shared edge cache with
+  stale-while-revalidate.
+
+### Changed
+
+- `limit` now accepts only integers from 1 through 50,000; malformed,
+  fractional, zero, negative, and oversized values return `400`.
+
 ## 2.0.1 — 2026-08-26
 
 ### Fixed

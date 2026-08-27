@@ -5,6 +5,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-validation';
 import { dataErrorResponse } from '@/lib/api-errors';
+import { publicDataResponse } from '@/lib/api-response';
 import {
   resolveCity,
   unsupportedCityResponse,
@@ -24,10 +25,10 @@ export async function GET(req: NextRequest) {
     const city = cityParam?.trim() ? (await resolveCity(cityParam)).slug : null;
 
     if (city && date) {
-      return Response.json({ city, date, rows: await getHourlyPollenRows(city, date) });
+      return publicDataResponse({ city, date, rows: await getHourlyPollenRows(city, date) });
     }
     if (city && !date) {
-      return Response.json({ city, rows: await getDailyPollenRows(city) });
+      return publicDataResponse({ city, rows: await getDailyPollenRows(city) });
     }
     if (date && !city) {
       // One summary per city for that day: latest reading count + max weed
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
         is_forecast: false,
         max_weed: r.max_weed,
       }));
-      return Response.json({ date, rows: out });
+      return publicDataResponse({ date, rows: out });
     }
     return new Response(
       JSON.stringify({ error: 'Provide either ?date=YYYY-MM-DD or ?city=slug' }),

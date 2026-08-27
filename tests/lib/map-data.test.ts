@@ -1,6 +1,10 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { buildMapFeatureCollection, type DailyCityRow } from '@/lib/mapData';
+import {
+  buildMapFeatureCollection,
+  MAP_AGGREGATION,
+  type DailyCityRow,
+} from '@/lib/mapData';
 
 const coords: Record<string, [number, number]> = {
   denver: [-104.99, 39.74],
@@ -49,11 +53,13 @@ test('buildMapFeatureCollection builds one feature per city with a sorted series
 
   const fc = buildMapFeatureCollection(rows, coords, '2026-08-10');
   assert.equal(fc.type, 'FeatureCollection');
+  assert.equal(fc.aggregation, MAP_AGGREGATION);
   assert.equal(fc.features.length, 2);
 
   const denver = fc.features.find((f: any) => f.properties.city === 'denver') as any;
   assert.ok(denver);
   assert.deepEqual(denver.geometry.coordinates, coords.denver);
+  assert.equal(denver.properties.value_basis, MAP_AGGREGATION);
   // base day is the requested date, not the max of the window
   assert.equal(denver.properties.tree, 12);
   assert.equal(denver.properties.count, 12 + 5 + 1);

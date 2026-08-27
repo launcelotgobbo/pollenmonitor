@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { publicDataResponse } from '@/lib/api-response';
 import { ambeeForecast48h } from '@/lib/ingest/ambee';
 import {
   getSupportedCities,
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     const cached = await getForecastRows(city);
     const cacheAge = cached.fetchedAt ? Date.now() - Date.parse(cached.fetchedAt) : Infinity;
     if (cached.rows.length > 0 && cacheAge < CACHE_TTL_MS) {
-      return Response.json({
+      return publicDataResponse({
         city,
         source: 'cache',
         stale: false,
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
         quota: quota(),
         reserve,
       });
-      return Response.json({
+      return publicDataResponse({
         city,
         source: 'cache',
         stale: true,
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
     await upsertPollenForecastBatch(rows);
 
     const fresh = await getForecastRows(city);
-    return Response.json({
+    return publicDataResponse({
       city,
       source: 'ambee',
       stale: false,

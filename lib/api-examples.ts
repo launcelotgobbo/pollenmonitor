@@ -1,0 +1,226 @@
+import { MAP_AGGREGATION } from '@/lib/mapData';
+
+export const API_EXAMPLES = {
+  cities: {
+    cities: [
+      { name: 'Berkeley', slug: 'berkeley' },
+      { name: 'Denver', slug: 'denver' },
+    ],
+  },
+  availableDates: {
+    dates: ['2026-08-26', '2026-08-25'],
+  },
+  latestDate: {
+    date: '2026-08-26',
+  },
+  hourlyPollen: {
+    city: 'berkeley',
+    date: '2026-08-25',
+    rows: [
+      {
+        ts: '2026-08-25T18:00:00.000Z',
+        tree: 20,
+        grass: 4,
+        weed: 29,
+        total: 53,
+        species: {
+          Tree: { Elm: 20, Oak: 0 },
+          Grass: { Grass: 4 },
+          Weed: { Ragweed: 29 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+        timezone: 'America/Los_Angeles',
+      },
+    ],
+  },
+  dailyPollen: {
+    city: 'berkeley',
+    rows: [
+      {
+        date: '2026-08-25',
+        tree: 18,
+        grass: 3,
+        weed: 21,
+        total: 42,
+        species: {
+          Tree: { Elm: 18, Oak: 0 },
+          Grass: { Grass: 3 },
+          Weed: { Ragweed: 21 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+        timezone: 'America/Los_Angeles',
+      },
+    ],
+  },
+  crossCityPollen: {
+    date: '2026-08-25',
+    rows: [
+      {
+        city: 'berkeley',
+        date: '2026-08-25',
+        count: 53,
+        source: 'ambee',
+        is_forecast: false,
+        max_weed: 29,
+      },
+    ],
+  },
+  pollenRange: {
+    from: '2026-08-20T00:00:00.000Z',
+    to: '2026-08-27T00:00:00.000Z',
+    cities: ['berkeley'],
+    aggregate: 'day',
+    rows: [
+      {
+        city: 'berkeley',
+        periodStart: '2026-08-25T00:00:00.000Z',
+        tree: 18,
+        grass: 3,
+        weed: 21,
+        total: 42,
+        timezone: 'America/Los_Angeles',
+        species: {
+          Tree: { Elm: 18, Oak: 0 },
+          Grass: { Grass: 3 },
+          Weed: { Ragweed: 21 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+      },
+    ],
+  },
+  mapData: {
+    type: 'FeatureCollection',
+    date: '2026-08-25',
+    aggregation: MAP_AGGREGATION,
+    features: [
+      {
+        type: 'Feature',
+        properties: {
+          city: 'berkeley',
+          value_basis: MAP_AGGREGATION,
+          count: 53,
+          tree: 20,
+          grass: 4,
+          weed: 29,
+          ragweed: 29,
+          max_weed: 29,
+          risk_tree: 'Moderate',
+          risk_grass: 'Low',
+          risk_weed: 'Moderate',
+          risk_ragweed: 'Moderate',
+          sev_tree: 2,
+          sev_grass: 1,
+          sev_weed: 2,
+          sev_ragweed: 2,
+          sev_total: 2,
+          timezone: 'America/Los_Angeles',
+          series: [
+            {
+              date: '2026-08-25',
+              tree: 20,
+              grass: 4,
+              weed: 29,
+              ragweed: 29,
+              risk_tree: 'Moderate',
+              risk_grass: 'Low',
+              risk_weed: 'Moderate',
+              risk_ragweed: 'Moderate',
+              timezone: 'America/Los_Angeles',
+            },
+          ],
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: [-122.273, 37.8715],
+        },
+      },
+    ],
+  },
+  forecast: {
+    city: 'berkeley',
+    source: 'cache',
+    stale: false,
+    fetchedAt: '2026-08-26T03:00:00.000Z',
+    rows: [
+      {
+        ts: '2026-08-26T04:00:00.000Z',
+        tree: 22,
+        grass: 4,
+        weed: 31,
+        total: 57,
+        species: {
+          Tree: { Elm: 22 },
+          Grass: { Grass: 4 },
+          Weed: { Ragweed: 31 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+        tz: 'America/Los_Angeles',
+      },
+    ],
+  },
+  mcpForecast: {
+    city: 'berkeley',
+    source: 'cache',
+    fetchedAt: '2026-08-26T03:00:00.000Z',
+    rows: [
+      {
+        ts: '2026-08-26T04:00:00.000Z',
+        tree: 22,
+        grass: 4,
+        weed: 31,
+        total: 57,
+        species: {
+          Tree: { Elm: 22 },
+          Grass: { Grass: 4 },
+          Weed: { Ragweed: 31 },
+        },
+        risk_tree: 'Moderate',
+        risk_grass: 'Low',
+        risk_weed: 'Moderate',
+        tz: 'America/Los_Angeles',
+      },
+    ],
+  },
+  weather: {
+    city: 'berkeley',
+    date: '2026-08-25',
+    rows: [
+      {
+        city_slug: 'berkeley',
+        date: '2026-08-25',
+        timezone: 'America/Los_Angeles',
+        temp_min_c: 13.2,
+        temp_max_c: 22.8,
+        humidity: 61,
+        wind_speed_ms: 4.1,
+        weather_main: 'Clear',
+        aqi: 2,
+        aqi_pm2_5: 8.4,
+        source: 'openweather',
+        created_at: '2026-08-26T19:20:45.398159+00:00',
+      },
+    ],
+  },
+  invalidParameter: {
+    error: "Invalid parameter 'date': expected a valid date in YYYY-MM-DD format",
+  },
+  unsupportedCity: {
+    error:
+      "Unsupported city 'atlantis'. Use GET /api/cities or the MCP list_cities tool to choose a supported city.",
+    code: 'UNSUPPORTED_CITY',
+    city: 'atlantis',
+    supportedCities: '/api/cities',
+    mcpTool: 'list_cities',
+  },
+  serviceError: {
+    error: 'Unable to load data',
+  },
+} as const;

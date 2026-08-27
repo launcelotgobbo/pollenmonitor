@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { dataErrorResponse } from '@/lib/api-errors';
-import { validationErrorResponse } from '@/lib/api-validation';
+import { publicDataResponse } from '@/lib/api-response';
+import {
+  parseIntegerParameter,
+  validationErrorResponse,
+} from '@/lib/api-validation';
 import {
   resolveCities,
   unsupportedCityResponse,
@@ -35,8 +39,11 @@ export async function GET(req: NextRequest) {
       await resolveCities(normalizeCityList(searchParams.get('city')))
     ).map((city) => city.slug);
     const aggregate = parseAggregate(searchParams.get('aggregate'));
-    const limitParam = Number(searchParams.get('limit') || '20000');
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50000) : 20000;
+    const limit = parseIntegerParameter(searchParams.get('limit'), 'limit', {
+      defaultValue: 20000,
+      min: 1,
+      max: 50000,
+    });
 
     const cityFilter = cityList.length > 0 ? 'AND city_slug = ANY($3::text[])' : '';
     const params: any[] = cityList.length > 0 ? [fromIso, toIso, cityList, limit] : [fromIso, toIso, limit];
@@ -111,7 +118,7 @@ export async function GET(req: NextRequest) {
             )
           ).rows;
 
-    return Response.json({
+    return publicDataResponse({
       from: fromIso,
       to: toIso,
       cities: cityList,

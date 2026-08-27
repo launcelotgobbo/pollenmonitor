@@ -50,7 +50,7 @@ export default function Forecast48h({ city }: { city: string }) {
     setIsLoading(true);
     setError(null);
     setData(null);
-    fetch(`/api/forecast?city=${encodeURIComponent(city)}`, { cache: 'no-store' })
+    fetch(`/api/forecast?city=${encodeURIComponent(city)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || `HTTP ${res.status}`);
         return res.json();

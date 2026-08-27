@@ -14,9 +14,7 @@ export default function DatePage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/pollen?date=${encodeURIComponent(date)}`, {
-          cache: 'no-store',
-        });
+        const res = await fetch(`/api/pollen?date=${encodeURIComponent(date)}`);
         const json = await res.json();
         setData(json);
       } catch (e: any) {

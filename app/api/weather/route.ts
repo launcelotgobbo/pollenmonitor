@@ -5,6 +5,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-validation';
 import { dataErrorResponse } from '@/lib/api-errors';
+import { publicDataResponse } from '@/lib/api-response';
 import {
   resolveCity,
   unsupportedCityResponse,
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
          ORDER BY w.date ASC`,
         [city, date],
       );
-      return Response.json({ city, date, rows: rows.map((r) => r.row) });
+      return publicDataResponse({ city, date, rows: rows.map((r) => r.row) });
     }
     if (city && !date) {
       const { rows } = await query<{ row: any }>(
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
          LIMIT 365`,
         [city],
       );
-      return Response.json({ city, rows: rows.map((r) => r.row) });
+      return publicDataResponse({ city, rows: rows.map((r) => r.row) });
     }
     if (date && !city) {
       const { rows } = await query<{ row: any }>(
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
          WHERE date = $1`,
         [date],
       );
-      return Response.json({ date, rows: rows.map((r) => r.row) });
+      return publicDataResponse({ date, rows: rows.map((r) => r.row) });
     }
     return Response.json({ error: 'Provide either ?city=slug or ?date=YYYY-MM-DD' }, { status: 400 });
   } catch (err) {

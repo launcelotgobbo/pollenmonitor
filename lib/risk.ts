@@ -20,7 +20,15 @@ export const NAB_THRESHOLDS = {
 } as const;
 
 export type PollenCategory = keyof typeof NAB_THRESHOLDS;
-export type PollenRisk = 'None' | 'Low' | 'Moderate' | 'High' | 'Very High';
+export const POLLEN_RISK_LABELS = [
+  'None',
+  'Low',
+  'Moderate',
+  'High',
+  'Very High',
+] as const;
+
+export type PollenRisk = (typeof POLLEN_RISK_LABELS)[number];
 
 export function normalizeRiskValue(value: string | null | undefined) {
   if (!value) return null;

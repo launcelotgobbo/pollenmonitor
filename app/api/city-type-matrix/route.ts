@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { dataErrorResponse } from '@/lib/api-errors';
+import { publicDataResponse } from '@/lib/api-response';
 import {
   resolveCity,
   unsupportedCityResponse,
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       [city, days],
     );
     const baseDates = baseRows.map((r) => r.date);
-    if (baseDates.length === 0) return Response.json({ city, rows: [] });
+    if (baseDates.length === 0) return publicDataResponse({ city, rows: [] });
 
     const earliest = baseDates[baseDates.length - 1];
     const latest = baseDates[0];
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return Response.json({ city, rows });
+    return publicDataResponse({ city, rows });
   } catch (e: unknown) {
     if (e instanceof UnsupportedCityError) {
       return unsupportedCityResponse(e);

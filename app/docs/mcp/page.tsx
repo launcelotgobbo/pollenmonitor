@@ -27,6 +27,9 @@ export default function McpDocsPage() {
           <Link href="/docs/changelog" className={badge}>
             Changelog
           </Link>
+          <Link href="/docs/api/explorer" className={badge}>
+            Interactive API
+          </Link>
           <Link href="/map" className={badge}>
             ← Back to map
           </Link>
@@ -62,7 +65,35 @@ export default function McpDocsPage() {
           .
         </p>
         <p>
-          The MCP server reports contract version <code>{API_VERSION}</code>.
+          Every tool advertises an <code>outputSchema</code>. Successful calls return
+          both JSON text and schema-validated <code>structuredContent</code>; failures
+          set <code>isError: true</code> with an actionable message. The MCP server
+          reports contract version <code>{API_VERSION}</code>.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Example tool input</h2>
+        <p className="text-sm leading-6 text-slate-600">
+          Request a bounded daily range after resolving the city with{' '}
+          <code>list_cities</code>:
+        </p>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`{
+  "name": "get_pollen_range",
+  "arguments": {
+    "city": "berkeley",
+    "from": "2026-08-20",
+    "to": "2026-08-27",
+    "aggregate": "day",
+    "limit": 500
+  }
+}`}
+        </pre>
+        <p className="text-sm leading-6 text-slate-600">
+          Date-range upper bounds are exclusive. Daily history and{' '}
+          <code>aggregate=day</code> return averages; cross-city map values are daily
+          category maxima.
         </p>
       </section>
 
