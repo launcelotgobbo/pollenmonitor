@@ -1,6 +1,6 @@
 # Pollen Monitor API
 
-The application exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md).
+Version 2.0.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
 
 The endpoints do not require authentication.
 
@@ -130,7 +130,7 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
 }
 ```
 
-Unsupported city slugs return `404` instead of an ambiguous empty result:
+All city-aware endpoints return the same structured `404` response for unsupported city slugs:
 
 ```json
 {

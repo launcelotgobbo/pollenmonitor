@@ -1,7 +1,9 @@
 import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
+import { API_VERSION } from '@/lib/api-version';
 import {
   callMcpApi,
+  callMcpCityApi,
   forecastInputSchema,
   getCachedMcpForecast,
   pollenInputSchema,
@@ -38,7 +40,7 @@ const handler = createMcpHandler(
         inputSchema: pollenInputSchema,
         annotations: readOnlyAnnotations,
       },
-      ({ city, date }) => callMcpApi('/api/pollen', { city, date }),
+      ({ city, date }) => callMcpCityApi('/api/pollen', city, { date }),
     );
 
     server.registerTool(
@@ -50,14 +52,12 @@ const handler = createMcpHandler(
         inputSchema: pollenRangeInputSchema,
         annotations: readOnlyAnnotations,
       },
-      ({ from, to, city, aggregate, limit }) =>
-        callMcpApi('/api/pollen-range', {
-          from,
-          to,
-          city,
-          aggregate,
-          limit,
-        }),
+      ({ from, to, city, aggregate, limit }) => {
+        const parameters = { from, to, aggregate, limit };
+        return city
+          ? callMcpCityApi('/api/pollen-range', city, parameters)
+          : callMcpApi('/api/pollen-range', parameters);
+      },
     );
 
     server.registerTool(
@@ -80,11 +80,11 @@ const handler = createMcpHandler(
         inputSchema: weatherInputSchema,
         annotations: readOnlyAnnotations,
       },
-      ({ city, date }) => callMcpApi('/api/weather', { city, date }),
+      ({ city, date }) => callMcpCityApi('/api/weather', city, { date }),
     );
   },
   {
-    serverInfo: { name: 'pollen-monitor', version: '1.0.0' },
+    serverInfo: { name: 'pollen-monitor', version: API_VERSION },
     instructions:
       'Use list_cities when a supported city slug is unknown. All tools are public and read-only.',
     maxSubscriptions: 0,

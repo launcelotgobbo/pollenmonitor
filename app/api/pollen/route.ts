@@ -1,17 +1,19 @@
 import { NextRequest } from 'next/server';
-import { assertSupportedCity, UnsupportedCityError } from '@/lib/cities';
+import {
+  resolveCity,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import { query } from '@/lib/db';
 import { getDailyPollenRows, getHourlyPollenRows, utcDayWindow } from '@/lib/pollen';
-import { normalizeCitySlug } from '@/lib/site';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const date = searchParams.get('date');
   const cityParam = searchParams.get('city');
-  const city = cityParam ? normalizeCitySlug(cityParam) : null;
 
   try {
-    if (city) await assertSupportedCity(city);
+    const city = cityParam?.trim() ? (await resolveCity(cityParam)).slug : null;
 
     if (city && date) {
       return Response.json({ city, date, rows: await getHourlyPollenRows(city, date) });
@@ -48,16 +50,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (err: unknown) {
     if (err instanceof UnsupportedCityError) {
-      return Response.json(
-        {
-          error: err.message,
-          code: 'UNSUPPORTED_CITY',
-          city: err.city,
-          supportedCities: '/api/cities',
-          mcpTool: 'list_cities',
-        },
-        { status: 404 },
-      );
+      return unsupportedCityResponse(err);
     }
     console.error('[pollen] error', err);
     return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), {

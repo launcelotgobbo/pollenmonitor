@@ -1,4 +1,9 @@
 import { NextRequest } from 'next/server';
+import {
+  resolveCity,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import { query } from '@/lib/db';
 
 const cityWeatherRowSql = `
@@ -23,9 +28,11 @@ const cityWeatherRowSql = `
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const city = searchParams.get('city');
+  const cityParam = searchParams.get('city');
   const date = searchParams.get('date');
   try {
+    const city = cityParam?.trim() ? (await resolveCity(cityParam)).slug : null;
+
     if (city && date) {
       const { rows } = await query<{ row: any }>(
         `${cityWeatherRowSql}
@@ -63,6 +70,9 @@ export async function GET(req: NextRequest) {
     }
     return Response.json({ error: 'Provide either ?city=slug or ?date=YYYY-MM-DD' }, { status: 400 });
   } catch (err) {
+    if (err instanceof UnsupportedCityError) {
+      return unsupportedCityResponse(err);
+    }
     console.error('[weather] error', err);
     return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }

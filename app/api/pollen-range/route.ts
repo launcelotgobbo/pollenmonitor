@@ -1,4 +1,9 @@
 import { NextRequest } from 'next/server';
+import {
+  resolveCities,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
 import {
   PollenRangeDbRow,
@@ -24,7 +29,9 @@ export async function GET(req: NextRequest) {
 
     const fromIso = toIsoString(fromDate);
     const toIso = toIsoString(toDate);
-    const cityList = normalizeCityList(searchParams.get('city'));
+    const cityList = (
+      await resolveCities(normalizeCityList(searchParams.get('city')))
+    ).map((city) => city.slug);
     const aggregate = parseAggregate(searchParams.get('aggregate'));
     const limitParam = Number(searchParams.get('limit') || '20000');
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50000) : 20000;
@@ -110,12 +117,15 @@ export async function GET(req: NextRequest) {
       rows: toPollenRangeRows(rows),
     });
   } catch (error: unknown) {
-    console.error('[pollen-range] error', error);
+    if (error instanceof UnsupportedCityError) {
+      return unsupportedCityResponse(error);
+    }
     // Only validation messages are safe to echo; database errors can carry
     // credentials, hostnames, and schema details.
     if (error instanceof ValidationError) {
       return Response.json({ error: error.message }, { status: 400 });
     }
+    console.error('[pollen-range] error', error);
     return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }
 }

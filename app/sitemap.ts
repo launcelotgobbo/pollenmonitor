@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next';
-import { loadTopCities } from '@/lib/ingest/cities';
+import { getSupportedCities } from '@/lib/cities';
 import { absoluteUrl } from '@/lib/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const cities = await loadTopCities();
+  const cities = await getSupportedCities();
   const uniqueCities = Array.from(new Map(cities.map((city) => [city.slug, city])).values());
   const lastModified = new Date();
 
@@ -25,6 +25,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified,
       changeFrequency: 'monthly',
       priority: 0.6,
+    },
+    {
+      url: absoluteUrl('/docs/changelog'),
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     ...uniqueCities.map((city) => ({
       url: absoluteUrl(`/city/${city.slug}`),
