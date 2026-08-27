@@ -40,9 +40,11 @@ export default function ApiDocsPage() {
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Authentication</h2>
+        <h2 className="text-xl font-semibold">Authentication and browser access</h2>
         <p className="text-sm leading-6 text-slate-600">
-          API version {API_VERSION} endpoints are publicly readable and do not require an API key.
+          API version {API_VERSION} endpoints are publicly readable, require no API key,
+          and allow cross-origin browser requests. Successful data responses use a
+          five-minute shared cache with stale-while-revalidate.
         </p>
       </section>
 
@@ -110,7 +112,10 @@ GET ${baseUrl}/api/latest-date`}
 {`GET ${baseUrl}/api/map-data?date=latest`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Compact GeoJSON with one point per city, category and Ragweed values, NAB risks, coordinates, timezone, and a three-day series. Full species blobs are omitted to keep cross-city responses small.
+          Compact GeoJSON with one point per city, daily category and Ragweed maxima,
+          NAB risks, coordinates, timezone, and a three-day series. The response includes{' '}
+          <code>aggregation: daily-category-maxima</code>; full species blobs are omitted
+          to keep cross-city responses small.
         </p>
       </section>
 
@@ -143,7 +148,7 @@ GET ${baseUrl}/api/latest-date`}
           Use <code>/api/pollen-range</code> for arbitrary windows. Supply <code>from</code> and <code>to</code>, optionally filter by <code>city</code>, and set <code>aggregate=day</code> for daily summaries. Hourly and daily modes return the same flat row shape.
         </p>
         <p className="text-xs leading-5 text-slate-500">
-          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code> (comma-separated slugs), <code>aggregate</code> (strictly <code>none</code> or <code>day</code>; unknown values return 400), <code>limit</code> (1–50 000, defaults to 20 000).
+          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code> (comma-separated slugs), <code>aggregate</code> (strictly <code>none</code> or <code>day</code>; unknown values return 400), <code>limit</code> (integer from 1–50 000, defaults to 20 000; invalid values return 400).
         </p>
       </section>
 

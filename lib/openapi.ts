@@ -5,6 +5,7 @@ import {
   SUPPORTED_CITY_HINT,
   UNSUPPORTED_CITY_CODE,
 } from '@/lib/cities';
+import { MAP_AGGREGATION } from '@/lib/mapData';
 import { absoluteUrl } from '@/lib/site';
 
 const nullableNumber = { type: ['number', 'null'] };
@@ -222,7 +223,7 @@ export const OPENAPI_DOCUMENT = {
         operationId: 'getPollenMapData',
         summary: 'Get cross-city pollen GeoJSON',
         description:
-          'Returns one compact point feature per city with tree, grass, weed, and ragweed values and NAB risk properties. Includes a three-day daily series but not full species blobs.',
+          'Returns one compact point feature per city with daily maximum tree, grass, weed, and ragweed values and NAB risk properties. Includes a three-day daily-maximum series but not full species blobs.',
         tags: ['Map'],
         parameters: [
           {
@@ -537,10 +538,11 @@ export const OPENAPI_DOCUMENT = {
       },
       MapFeatureCollection: {
         type: 'object',
-        required: ['type', 'date', 'features'],
+        required: ['type', 'date', 'aggregation', 'features'],
         properties: {
           type: { type: 'string', const: 'FeatureCollection' },
           date: { $ref: '#/components/schemas/Date' },
+          aggregation: { type: 'string', const: MAP_AGGREGATION },
           features: {
             type: 'array',
             items: {
@@ -550,9 +552,10 @@ export const OPENAPI_DOCUMENT = {
                 type: { type: 'string', const: 'Feature' },
                 properties: {
                   type: 'object',
-                  required: ['city', 'ragweed', 'risk_ragweed', 'series'],
+                  required: ['city', 'value_basis', 'ragweed', 'risk_ragweed', 'series'],
                   properties: {
                     city: { type: 'string' },
+                    value_basis: { type: 'string', const: MAP_AGGREGATION },
                     count: { type: 'number' },
                     tree: nullableNumber,
                     grass: nullableNumber,

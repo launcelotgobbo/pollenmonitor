@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import { API_VERSION } from '@/lib/api-version';
+import { MAP_AGGREGATION } from '@/lib/mapData';
 import { OPENAPI_DOCUMENT } from '@/lib/openapi';
 
 function walk(value: unknown, visit: (value: unknown) => void) {
@@ -61,6 +62,10 @@ test('OpenAPI documents runtime error and map media-type contracts', () => {
   assert.ok(OPENAPI_DOCUMENT.paths['/api/pollen-range'].get.responses['500']);
   const mapContent = OPENAPI_DOCUMENT.paths['/api/map-data'].get.responses['200'].content;
   assert.deepEqual(Object.keys(mapContent), ['application/geo+json']);
+  assert.equal(
+    OPENAPI_DOCUMENT.components.schemas.MapFeatureCollection.properties.aggregation.const,
+    MAP_AGGREGATION,
+  );
 });
 
 test('OpenAPI documents strict aggregation and one pollen-range row shape', () => {
@@ -87,7 +92,7 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
-  assert.equal(API_VERSION, '2.0.1');
+  assert.equal(API_VERSION, '2.1.0');
   assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');

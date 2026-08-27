@@ -1,5 +1,7 @@
 import { pollenRisk, riskScore, type PollenRisk } from '@/lib/risk';
 
+export const MAP_AGGREGATION = 'daily-category-maxima';
+
 // One SQL-aggregated row per (city, UTC day): daily category maxima and the
 // largest species value in each category, used for category-specific NAB risk.
 export type DailyCityRow = {
@@ -80,6 +82,7 @@ export function buildMapFeatureCollection(
       type: 'Feature',
       properties: {
         city,
+        value_basis: MAP_AGGREGATION,
         count: (baseDay.grass ?? 0) + (baseDay.tree ?? 0) + (baseDay.weed ?? 0),
         tree: baseDay.tree ?? null,
         grass: baseDay.grass ?? null,
@@ -102,5 +105,9 @@ export function buildMapFeatureCollection(
     };
   });
 
-  return { type: 'FeatureCollection', features };
+  return {
+    type: 'FeatureCollection',
+    aggregation: MAP_AGGREGATION,
+    features,
+  };
 }

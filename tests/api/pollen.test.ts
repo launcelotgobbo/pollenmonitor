@@ -10,6 +10,10 @@ test('city discovery and pollen validation use the same supported city source', 
   const body = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get('cache-control'),
+    'public, max-age=0, s-maxage=300, stale-while-revalidate=3600',
+  );
   assert.ok(body.cities.some((city: any) => city.slug === 'seattle'));
   assert.deepEqual(
     body.cities.map((city: any) => city.name),

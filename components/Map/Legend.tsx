@@ -8,7 +8,9 @@ export default function Legend() {
   ];
   return (
     <div className="rounded-2xl bg-slate-900/75 px-4 py-3 text-slate-50 shadow-xl backdrop-blur-md">
-      <strong className="text-xs font-semibold uppercase tracking-wide text-slate-300">Pollen risk</strong>
+      <strong className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+        Pollen risk, daily maxima
+      </strong>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         {items.map((it) => (
           <div key={it.label} className="flex items-center gap-1.5">
@@ -21,6 +23,9 @@ export default function Legend() {
           </div>
         ))}
       </div>
+      <p className="mt-2 text-[11px] leading-4 text-slate-300">
+        Each category shows its highest hourly reading for the selected day.
+      </p>
       <a
         href="https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts"
         target="_blank"

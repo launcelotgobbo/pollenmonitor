@@ -1,5 +1,19 @@
 # API Changelog
 
+## 2.1.0 — 2026-08-26
+
+### Added
+
+- Public read-only REST routes now support browser clients with wildcard CORS.
+- Map GeoJSON and the map UI identify values as daily category maxima.
+- Successful public data responses use a five-minute shared edge cache with
+  stale-while-revalidate.
+
+### Changed
+
+- `limit` now accepts only integers from 1 through 50,000; malformed,
+  fractional, zero, negative, and oversized values return `400`.
+
 ## 2.0.1 — 2026-08-26
 
 ### Fixed

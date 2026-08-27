@@ -48,7 +48,6 @@ export function useCityDayData({ city, initialSelected, initialHourly, initialTi
       try {
         const response = await fetch(`/api/pollen?city=${encodeURIComponent(city)}&date=${encodeURIComponent(date)}`, {
           signal: controller.signal,
-          cache: 'no-store',
         });
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
@@ -62,7 +61,6 @@ export function useCityDayData({ city, initialSelected, initialHourly, initialTi
         try {
           const wres = await fetch(`/api/weather?city=${encodeURIComponent(city)}&date=${encodeURIComponent(date)}`, {
             signal: controller.signal,
-            cache: 'no-store',
           });
           if (wres.ok) {
             const wjson = await wres.json();

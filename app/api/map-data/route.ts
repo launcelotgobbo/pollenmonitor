@@ -5,6 +5,10 @@ import {
   validationErrorResponse,
 } from '@/lib/api-validation';
 import { dataErrorResponse } from '@/lib/api-errors';
+import {
+  publicDataResponse,
+  PUBLIC_DATA_CACHE_CONTROL,
+} from '@/lib/api-response';
 import { numericSpeciesEntriesSql, query } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import { buildMapFeatureCollection, type DailyCityRow } from '@/lib/mapData';
@@ -73,9 +77,9 @@ export async function GET(req: NextRequest) {
     const windowFullyHistorical = dayEnd.slice(0, 10) <= todayUTC;
     const cacheControl = windowFullyHistorical
       ? 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
-      : 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600';
+      : PUBLIC_DATA_CACHE_CONTROL;
 
-    return Response.json(
+    return publicDataResponse(
       { ...fc, date },
       {
         headers: {

@@ -40,6 +40,28 @@ export function parseDateTimeParameter(value: string | null, label: string): Dat
   return parsed;
 }
 
+export function parseIntegerParameter(
+  value: string | null,
+  label: string,
+  { defaultValue, min, max }: { defaultValue: number; min: number; max: number },
+): number {
+  if (value === null) return defaultValue;
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    throw new ApiValidationError(
+      `Invalid parameter '${label}': expected an integer between ${min} and ${max}`,
+    );
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new ApiValidationError(
+      `Invalid parameter '${label}': expected an integer between ${min} and ${max}`,
+    );
+  }
+  return parsed;
+}
+
 export function validationErrorResponse(error: ApiValidationError) {
   return Response.json({ error: error.message }, { status: 400 });
 }
