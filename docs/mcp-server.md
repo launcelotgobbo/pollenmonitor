@@ -28,7 +28,27 @@ No local provider or API credentials are required.
 - `get_weather`: Get city weather and air-quality history.
 
 All tool inputs are validated, range results are capped at 2,000 rows, and all
-tools are read-only.
+tools are read-only. Every tool advertises an `outputSchema`; successful calls
+return both JSON text and schema-validated `structuredContent`. Failures set
+`isError: true` with an actionable message.
+
+Example bounded daily range input:
+
+```json
+{
+  "name": "get_pollen_range",
+  "arguments": {
+    "city": "berkeley",
+    "from": "2026-08-20",
+    "to": "2026-08-27",
+    "aggregate": "day",
+    "limit": 500
+  }
+}
+```
+
+The `to` bound is exclusive. Daily history and `aggregate=day` use daily
+averages, while map values use daily category maxima.
 
 ## Older clients
 

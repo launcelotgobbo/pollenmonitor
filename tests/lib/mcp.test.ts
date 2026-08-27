@@ -1,12 +1,18 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
+import { API_EXAMPLES } from '@/lib/api-examples';
 import {
   callMcpCityApi,
+  citiesOutputSchema,
   forecastInputSchema,
+  forecastOutputSchema,
   getCachedMcpForecast,
   pollenInputSchema,
+  pollenOutputSchema,
   pollenRangeInputSchema,
+  pollenRangeOutputSchema,
   weatherInputSchema,
+  weatherOutputSchema,
 } from '@/lib/mcp';
 
 const unsupportedCityMessage =
@@ -41,6 +47,16 @@ test('MCP tool schemas reject invalid dates, slugs, and excessive limits', () =>
     }).success,
     false,
   );
+});
+
+test('MCP output schemas describe every successful structured response', () => {
+  assert.equal(citiesOutputSchema.safeParse(API_EXAMPLES.cities).success, true);
+  assert.equal(pollenOutputSchema.safeParse(API_EXAMPLES.hourlyPollen).success, true);
+  assert.equal(pollenOutputSchema.safeParse(API_EXAMPLES.dailyPollen).success, true);
+  assert.equal(pollenOutputSchema.safeParse(API_EXAMPLES.crossCityPollen).success, true);
+  assert.equal(pollenRangeOutputSchema.safeParse(API_EXAMPLES.pollenRange).success, true);
+  assert.equal(forecastOutputSchema.safeParse(API_EXAMPLES.mcpForecast).success, true);
+  assert.equal(weatherOutputSchema.safeParse(API_EXAMPLES.weather).success, true);
 });
 
 test('MCP city API tools use the shared unsupported-city resolver', async () => {

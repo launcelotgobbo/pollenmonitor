@@ -1,5 +1,22 @@
 # API Changelog
 
+## 2.2.0 — 2026-08-26
+
+### Added
+
+- Interactive Swagger UI with safe live `GET` requests.
+- Full OpenAPI success and error examples plus curl, JavaScript, and Python
+  code samples for every operation.
+- Explicit MCP output schemas with validated structured content for every tool.
+- Expanded `/llms.txt` guidance covering tool selection, worked requests,
+  aggregation semantics, response conventions, and error handling.
+- Redocly OpenAPI validation in local tooling and CI.
+
+### Fixed
+
+- The OpenAPI forecast row schema now reflects nullable totals, the `tz`
+  field, and the complete map feature properties.
+
 ## 2.1.0 — 2026-08-26
 
 ### Added

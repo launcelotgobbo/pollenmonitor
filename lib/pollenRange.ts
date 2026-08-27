@@ -1,7 +1,8 @@
 import { ApiValidationError, parseDateTimeParameter } from '@/lib/api-validation';
 import { withNabRisk, type PollenRisk } from '@/lib/risk';
 
-export type PollenRangeAggregate = 'none' | 'day';
+export const POLLEN_RANGE_AGGREGATES = ['none', 'day'] as const;
+export type PollenRangeAggregate = (typeof POLLEN_RANGE_AGGREGATES)[number];
 
 export type PollenRangeDbRow = {
   city_slug: string;
@@ -44,8 +45,10 @@ export function parseDate(value: string | null, label: string): Date {
 }
 
 export function parseAggregate(value: string | null): PollenRangeAggregate {
-  if (!value || value === 'none') return 'none';
-  if (value === 'day') return 'day';
+  if (!value) return 'none';
+  if ((POLLEN_RANGE_AGGREGATES as readonly string[]).includes(value)) {
+    return value as PollenRangeAggregate;
+  }
   throw new ApiValidationError("Invalid parameter 'aggregate': expected 'none' or 'day'");
 }
 

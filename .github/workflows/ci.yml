@@ -27,6 +27,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Validate OpenAPI
+        run: npm run openapi:lint
+
       - name: Unit tests
         run: npm test
 

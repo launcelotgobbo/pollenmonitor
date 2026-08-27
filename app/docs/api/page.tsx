@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { API_EXAMPLES } from '@/lib/api-examples';
 import { API_VERSION } from '@/lib/api-version';
 import { SITE_URL } from '@/lib/site';
 
@@ -30,6 +31,9 @@ export default function ApiDocsPage() {
           <Link href="/docs/changelog" className={linkStyles}>
             Changelog
           </Link>
+          <Link href="/docs/api/explorer" className={linkStyles}>
+            Interactive explorer
+          </Link>
           <a href="/openapi.json" className={linkStyles}>
             OpenAPI 3.1
           </a>
@@ -46,6 +50,51 @@ export default function ApiDocsPage() {
           and allow cross-origin browser requests. Successful data responses use a
           five-minute shared cache with stale-while-revalidate.
         </p>
+        <p className="text-sm leading-6 text-slate-600">
+          Use the{' '}
+          <Link
+            href="/docs/api/explorer"
+            className="font-semibold underline underline-offset-2"
+          >
+            interactive Swagger UI
+          </Link>{' '}
+          to inspect complete response examples and run safe <code>GET</code> requests.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Quickstart example</h2>
+        <h3 className="text-sm font-semibold text-slate-700">curl</h3>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`curl --fail --silent --show-error \\
+  '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25'`}
+        </pre>
+        <h3 className="text-sm font-semibold text-slate-700">JavaScript</h3>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`const response = await fetch(
+  '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25'
+);
+if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+const data = await response.json();`}
+        </pre>
+        <h3 className="text-sm font-semibold text-slate-700">Python</h3>
+        <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+{`import requests
+
+response = requests.get(
+    '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25',
+    timeout=15,
+)
+response.raise_for_status()
+data = response.json()`}
+        </pre>
+        <p className="text-sm leading-6 text-slate-600">
+          A successful response has this shape. The OpenAPI contract includes
+          equivalent curl, JavaScript, and Python samples for every operation.
+        </p>
+        <pre className="max-h-96 overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
+          {JSON.stringify(API_EXAMPLES.hourlyPollen, null, 2)}
+        </pre>
       </section>
 
       <section className="space-y-4">

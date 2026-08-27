@@ -4,11 +4,16 @@ import { API_VERSION } from '@/lib/api-version';
 import {
   callMcpApi,
   callMcpCityApi,
+  citiesOutputSchema,
   forecastInputSchema,
+  forecastOutputSchema,
   getCachedMcpForecast,
   pollenInputSchema,
+  pollenOutputSchema,
   pollenRangeInputSchema,
+  pollenRangeOutputSchema,
   weatherInputSchema,
+  weatherOutputSchema,
 } from '@/lib/mcp';
 
 const readOnlyAnnotations = {
@@ -26,6 +31,7 @@ const handler = createMcpHandler(
         title: 'List supported cities',
         description: 'List city names and slugs supported by Pollen Monitor.',
         inputSchema: z.object({}),
+        outputSchema: citiesOutputSchema,
         annotations: readOnlyAnnotations,
       },
       () => callMcpApi('/api/cities'),
@@ -38,6 +44,7 @@ const handler = createMcpHandler(
         description:
           'Get daily pollen history for a city, or hourly observations when a date is provided.',
         inputSchema: pollenInputSchema,
+        outputSchema: pollenOutputSchema,
         annotations: readOnlyAnnotations,
       },
       ({ city, date }) => callMcpCityApi('/api/pollen', city, { date }),
@@ -50,6 +57,7 @@ const handler = createMcpHandler(
         description:
           'Get bounded hourly or daily pollen observations between two UTC dates.',
         inputSchema: pollenRangeInputSchema,
+        outputSchema: pollenRangeOutputSchema,
         annotations: readOnlyAnnotations,
       },
       ({ from, to, city, aggregate, limit }) => {
@@ -67,6 +75,7 @@ const handler = createMcpHandler(
         description:
           'Get the cached 48-hour pollen forecast for a supported city without refreshing the provider.',
         inputSchema: forecastInputSchema,
+        outputSchema: forecastOutputSchema,
         annotations: readOnlyAnnotations,
       },
       ({ city }) => getCachedMcpForecast(city),
@@ -78,6 +87,7 @@ const handler = createMcpHandler(
         title: 'Get city weather and air quality',
         description: 'Get weather and air-quality history, optionally for a specific date.',
         inputSchema: weatherInputSchema,
+        outputSchema: weatherOutputSchema,
         annotations: readOnlyAnnotations,
       },
       ({ city, date }) => callMcpCityApi('/api/weather', city, { date }),

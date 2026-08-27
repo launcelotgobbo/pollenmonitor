@@ -31,6 +31,35 @@ export default function ChangelogPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
             August 26, 2026
           </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.2.0</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Added</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Interactive Swagger UI for safe live read-only requests.</li>
+            <li>
+              Full OpenAPI response examples and curl, JavaScript, and Python
+              samples for every operation.
+            </li>
+            <li>Explicit MCP output schemas with validated structured content.</li>
+            <li>Expanded agent workflow and response guidance in <code>/llms.txt</code>.</li>
+            <li>Redocly OpenAPI validation in local tooling and CI.</li>
+          </ul>
+          <h3 className="font-semibold text-slate-900">Fixed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Exact forecast rows and complete map feature properties are now
+              reflected in OpenAPI.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            August 26, 2026
+          </p>
           <h2 className="mt-1 text-2xl font-semibold">2.1.0</h2>
         </div>
         <div className="space-y-3 text-sm leading-6 text-slate-600">

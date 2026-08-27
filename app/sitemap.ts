@@ -21,6 +21,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: absoluteUrl('/docs/api/explorer'),
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
       url: absoluteUrl('/docs/mcp'),
       lastModified,
       changeFrequency: 'monthly',

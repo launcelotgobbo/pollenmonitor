@@ -92,15 +92,67 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
-  assert.equal(API_VERSION, '2.1.0');
+  assert.equal(API_VERSION, '2.2.0');
   assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');
   assert.ok(OPENAPI_DOCUMENT.paths['/api/pollen'].get.responses['404']);
   assert.deepEqual(
     OPENAPI_DOCUMENT.components.schemas.DailyPollen.required,
-    ['date', 'tree', 'grass', 'weed', 'total', 'species'],
+    [
+      'date',
+      'tree',
+      'grass',
+      'weed',
+      'total',
+      'species',
+      'risk_tree',
+      'risk_grass',
+      'risk_weed',
+      'timezone',
+    ],
   );
+});
+
+test('OpenAPI gives agents complete response examples and code samples', () => {
+  for (const path of Object.values(OPENAPI_DOCUMENT.paths)) {
+    const operation = path.get as any;
+    assert.deepEqual(
+      operation['x-codeSamples'].map((sample: { lang: string }) => sample.lang),
+      ['Shell', 'JavaScript', 'Python'],
+    );
+
+    const successContent = operation.responses['200'].content;
+    for (const mediaType of Object.values(successContent) as any[]) {
+      assert.ok(
+        mediaType.examples && Object.keys(mediaType.examples).length > 0,
+        `${operation.operationId} must include a success response example`,
+      );
+    }
+  }
+
+  assert.ok(
+    OPENAPI_DOCUMENT.components.responses.Error.content['application/json'].examples
+      .invalidParameter,
+  );
+  assert.ok(
+    OPENAPI_DOCUMENT.components.responses.UnsupportedCity.content['application/json']
+      .examples.unsupportedCity,
+  );
+});
+
+test('OpenAPI reflects the exact discovery, forecast, and map shapes', () => {
+  assert.deepEqual(OPENAPI_DOCUMENT.components.schemas.City.required, ['name', 'slug']);
+  assert.equal(
+    OPENAPI_DOCUMENT.components.schemas.ForecastResponse.properties.rows.items.$ref,
+    '#/components/schemas/ForecastPollen',
+  );
+  assert.ok(OPENAPI_DOCUMENT.components.schemas.ForecastPollen.required.includes('tz'));
+  const mapProperties =
+    OPENAPI_DOCUMENT.components.schemas.MapFeatureCollection.properties.features.items
+      .properties.properties;
+  assert.ok(mapProperties.required.includes('max_weed'));
+  assert.equal(mapProperties.properties.max_weed.type, 'number');
 });
 
 test('OpenAPI documents the shared unsupported-city contract', () => {
