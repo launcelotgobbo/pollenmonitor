@@ -1,7 +1,12 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { ambeeForecast48h } from '@/lib/ingest/ambee';
-import { loadTopCities } from '@/lib/ingest/cities';
+import {
+  getSupportedCities,
+  resolveCity,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import {
   getAmbeeCallsTodayUTC,
   getForecastRows,
@@ -9,7 +14,6 @@ import {
   upsertPollenForecastBatch,
 } from '@/lib/db';
 import { withNabRisk } from '@/lib/risk';
-import { normalizeCitySlug } from '@/lib/site';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const QUOTA_RESERVE_FLOOR = 5;
@@ -32,18 +36,15 @@ function quotaReserve(cityCount: number) {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const city = normalizeCitySlug(searchParams.get('city') || '');
-  if (!city) {
+  const cityParam = searchParams.get('city');
+  if (!cityParam?.trim()) {
     return Response.json({ error: 'Provide ?city=slug' }, { status: 400 });
   }
 
-  const cities = await loadTopCities();
-  const match = cities.find((c) => c.slug === city);
-  if (!match) {
-    return Response.json({ error: `Unknown city: ${city}` }, { status: 404 });
-  }
-
   try {
+    const match = await resolveCity(cityParam);
+    const city = match.slug;
+    const cities = await getSupportedCities();
     const cached = await getForecastRows(city);
     const cacheAge = cached.fetchedAt ? Date.now() - Date.parse(cached.fetchedAt) : Infinity;
     if (cached.rows.length > 0 && cacheAge < CACHE_TTL_MS) {
@@ -106,10 +107,13 @@ export async function GET(req: NextRequest) {
       rows: fresh.rows.map(withNabRisk),
     });
   } catch (err) {
+    if (err instanceof UnsupportedCityError) {
+      return unsupportedCityResponse(err);
+    }
     console.error('[forecast] error', {
       level: 'error',
       job: 'forecast',
-      city,
+      city: cityParam,
       message: (err as Error)?.message ?? String(err),
     });
     return Response.json({ error: 'Forecast unavailable' }, { status: 500 });

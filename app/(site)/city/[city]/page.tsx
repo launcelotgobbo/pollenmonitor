@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import CityDailyExplorer, { DailySummary, HourlyRow } from '@/components/CityDailyExplorer';
-import { assertSupportedCity, UnsupportedCityError } from '@/lib/cities';
+import { resolveCity, UnsupportedCityError } from '@/lib/cities';
 import { getDailyPollenRows, getHourlyPollenRows } from '@/lib/pollen';
 import { absoluteUrl, cityDisplayName, normalizeCitySlug } from '@/lib/site';
 
@@ -51,7 +51,7 @@ export default async function CityPage({ params, searchParams }: Props) {
   if (!city) notFound();
 
   try {
-    await assertSupportedCity(city);
+    await resolveCity(city);
   } catch (error) {
     if (error instanceof UnsupportedCityError) notFound();
     throw error;

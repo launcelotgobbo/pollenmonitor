@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { API_VERSION } from '@/lib/api-version';
 import { SITE_URL } from '@/lib/site';
 
 export const metadata = {
@@ -22,6 +23,9 @@ export default function McpDocsPage() {
         <div className="flex flex-wrap gap-2">
           <Link href="/docs/api" className={badge}>
             API reference
+          </Link>
+          <Link href="/docs/changelog" className={badge}>
+            Changelog
           </Link>
           <Link href="/map" className={badge}>
             ← Back to map
@@ -56,6 +60,9 @@ export default function McpDocsPage() {
             API reference
           </Link>
           .
+        </p>
+        <p>
+          The MCP server reports contract version <code>{API_VERSION}</code>.
         </p>
       </section>
 

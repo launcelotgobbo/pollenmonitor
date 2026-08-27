@@ -1,11 +1,16 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import {
+  callMcpCityApi,
   forecastInputSchema,
+  getCachedMcpForecast,
   pollenInputSchema,
   pollenRangeInputSchema,
   weatherInputSchema,
 } from '@/lib/mcp';
+
+const unsupportedCityMessage =
+  "Unsupported city 'atlantis'. Use GET /api/cities or the MCP list_cities tool to choose a supported city.";
 
 test('MCP tool schemas accept bounded read-only inputs', () => {
   assert.deepEqual(pollenInputSchema.parse({ city: 'seattle', date: '2026-08-26' }), {
@@ -36,4 +41,23 @@ test('MCP tool schemas reject invalid dates, slugs, and excessive limits', () =>
     }).success,
     false,
   );
+});
+
+test('MCP city API tools use the shared unsupported-city resolver', async () => {
+  for (const [path, parameters] of [
+    ['/api/pollen', {}],
+    ['/api/pollen-range', { from: '2026-08-01', to: '2026-08-02' }],
+    ['/api/weather', {}],
+  ] as const) {
+    const result = await callMcpCityApi(path, 'atlantis', parameters);
+    assert.equal('isError' in result && result.isError, true);
+    assert.equal(result.content[0].text, unsupportedCityMessage);
+  }
+});
+
+test('MCP forecast uses the shared unsupported-city resolver', async () => {
+  const result = await getCachedMcpForecast('atlantis');
+
+  assert.equal('isError' in result && result.isError, true);
+  assert.equal(result.content[0].text, unsupportedCityMessage);
 });

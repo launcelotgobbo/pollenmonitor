@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { API_VERSION } from '@/lib/api-version';
 import { SITE_URL } from '@/lib/site';
 
 export const metadata = {
@@ -26,6 +27,9 @@ export default function ApiDocsPage() {
           <Link href="/docs/mcp" className={linkStyles}>
             MCP guide
           </Link>
+          <Link href="/docs/changelog" className={linkStyles}>
+            Changelog
+          </Link>
           <a href="/openapi.json" className={linkStyles}>
             OpenAPI 3.1
           </a>
@@ -38,7 +42,7 @@ export default function ApiDocsPage() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Authentication</h2>
         <p className="text-sm leading-6 text-slate-600">
-          Endpoints are publicly readable and do not require an API key.
+          API version {API_VERSION} endpoints are publicly readable and do not require an API key.
         </p>
       </section>
 

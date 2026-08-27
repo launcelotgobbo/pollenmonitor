@@ -1,9 +1,15 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import {
+  getSupportedCities,
+  resolveCity,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import { formatUtcSqlTimestamp, parseUtcDate } from '@/lib/date';
 import { logIngest } from '@/lib/db';
-import { loadTopCities } from '@/lib/ingest/cities';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
+import type { City } from '@/lib/ingest/cities';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
@@ -14,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!isIngestAuthorized(req)) return unauthorized();
 
   const { searchParams } = new URL(req.url);
-  const cityFilter = searchParams.get('city');
+  const requestedCity = searchParams.get('city');
   const dryRun = searchParams.get('dry') === 'true';
   const includeWeather = searchParams.get('includeWeather') !== 'false';
   const hoursBack = Math.max(1, Math.min(AMBEE_HISTORY_HOURS, Number(searchParams.get('hours') || '48')));
@@ -79,9 +85,10 @@ export async function POST(req: NextRequest) {
       historyHours: AMBEE_HISTORY_HOURS,
     });
   }
-  const allCities = await loadTopCities();
-
-  if (!allCities.length) {
+  let allCities: City[];
+  try {
+    allCities = await getSupportedCities();
+  } catch (error) {
     const failure = {
       ok: false,
       from: fromISO,
@@ -95,20 +102,28 @@ export async function POST(req: NextRequest) {
       dryRun,
       error: `No city definitions available. Check public/data/${CITY_GEOJSON_FILENAME} or related configuration.`,
     };
-    console.error('[ingest manual] abort: loadTopCities returned 0', {
+    console.error('[ingest manual] abort: city catalog unavailable', {
       level: 'error',
       job: 'manual-ingest',
       jobId,
       ts: new Date().toISOString(),
       error: failure.error,
+      cause: error instanceof Error ? error.message : String(error),
     });
     await logIngest('failure', failure);
     return Response.json(failure, { status: 500 });
   }
 
-  const cities = allCities.filter((c) => (cityFilter ? c.slug === cityFilter : true));
-  if (!cities.length) {
-    return Response.json({ error: `No cities matched request for filter ${cityFilter}` }, { status: 400 });
+  let cities = allCities;
+  if (requestedCity) {
+    try {
+      cities = [await resolveCity(requestedCity)];
+    } catch (error) {
+      if (error instanceof UnsupportedCityError) {
+        return unsupportedCityResponse(error);
+      }
+      throw error;
+    }
   }
 
   console.log('[ingest manual] start', {

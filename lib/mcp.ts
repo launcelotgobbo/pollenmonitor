@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { resolveCity, UnsupportedCityError } from '@/lib/cities';
 import { getForecastRows } from '@/lib/db';
-import { loadTopCities } from '@/lib/ingest/cities';
 import { withNabRisk } from '@/lib/risk';
 import { absoluteUrl, normalizeCitySlug } from '@/lib/site';
 
@@ -47,6 +47,13 @@ function mcpJsonResult(body: unknown) {
   };
 }
 
+function mcpErrorResult(message: string) {
+  return {
+    isError: true as const,
+    content: [{ type: 'text' as const, text: message }],
+  };
+}
+
 export async function callMcpApi(path: string, parameters: ApiParameters = {}) {
   const url = new URL(absoluteUrl(path));
   for (const [key, value] of Object.entries(parameters)) {
@@ -65,42 +72,45 @@ export async function callMcpApi(path: string, parameters: ApiParameters = {}) {
         body && typeof body === 'object' && 'error' in body
           ? String(body.error)
           : `Pollen API request failed with status ${response.status}`;
-      return {
-        isError: true as const,
-        content: [{ type: 'text' as const, text: message }],
-      };
+      return mcpErrorResult(message);
     }
 
     return mcpJsonResult(body);
   } catch {
-    return {
-      isError: true as const,
-      content: [{ type: 'text' as const, text: 'Pollen API request unavailable' }],
-    };
+    return mcpErrorResult('Pollen API request unavailable');
+  }
+}
+
+export async function callMcpCityApi(
+  path: string,
+  city: string,
+  parameters: ApiParameters = {},
+) {
+  try {
+    const resolved = await resolveCity(city);
+    return callMcpApi(path, { ...parameters, city: resolved.slug });
+  } catch (error) {
+    if (error instanceof UnsupportedCityError) {
+      return mcpErrorResult(error.message);
+    }
+    return mcpErrorResult('Supported city definitions are unavailable');
   }
 }
 
 export async function getCachedMcpForecast(city: string) {
   try {
-    const cities = await loadTopCities();
-    if (!cities.some((candidate) => candidate.slug === city)) {
-      return {
-        isError: true as const,
-        content: [{ type: 'text' as const, text: `Unknown city: ${city}` }],
-      };
-    }
-
-    const cached = await getForecastRows(city);
+    const resolved = await resolveCity(city);
+    const cached = await getForecastRows(resolved.slug);
     return mcpJsonResult({
-      city,
+      city: resolved.slug,
       source: 'cache',
       fetchedAt: cached.fetchedAt,
       rows: cached.rows.map(withNabRisk),
     });
-  } catch {
-    return {
-      isError: true as const,
-      content: [{ type: 'text' as const, text: 'Forecast data unavailable' }],
-    };
+  } catch (error) {
+    if (error instanceof UnsupportedCityError) {
+      return mcpErrorResult(error.message);
+    }
+    return mcpErrorResult('Forecast data unavailable');
   }
 }

@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
+import { API_VERSION } from '@/lib/api-version';
 import { OPENAPI_DOCUMENT } from '@/lib/openapi';
 
 function walk(value: unknown, visit: (value: unknown) => void) {
@@ -76,6 +77,8 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
+  assert.equal(API_VERSION, '2.0.0');
+  assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');
   assert.ok(OPENAPI_DOCUMENT.paths['/api/pollen'].get.responses['404']);
@@ -83,4 +86,29 @@ test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
     OPENAPI_DOCUMENT.components.schemas.DailyPollen.required,
     ['date', 'tree', 'grass', 'weed', 'total', 'species'],
   );
+});
+
+test('OpenAPI documents the shared unsupported-city contract', () => {
+  for (const path of ['/api/pollen', '/api/pollen-range', '/api/forecast', '/api/weather'] as const) {
+    assert.equal(
+      OPENAPI_DOCUMENT.paths[path].get.responses['404'].$ref,
+      '#/components/responses/UnsupportedCity',
+    );
+  }
+
+  assert.equal(
+    OPENAPI_DOCUMENT.components.responses.UnsupportedCity.content['application/json'].schema.$ref,
+    '#/components/schemas/UnsupportedCityError',
+  );
+  const schema = OPENAPI_DOCUMENT.components.schemas.UnsupportedCityError;
+  assert.deepEqual(schema.required, [
+    'error',
+    'code',
+    'city',
+    'supportedCities',
+    'mcpTool',
+  ]);
+  assert.deepEqual(schema.properties.code.enum, ['UNSUPPORTED_CITY']);
+  assert.equal(schema.properties.supportedCities.const, '/api/cities');
+  assert.equal(schema.properties.mcpTool.const, 'list_cities');
 });

@@ -1,3 +1,10 @@
+import { API_VERSION } from '@/lib/api-version';
+import {
+  MCP_LIST_CITIES_TOOL,
+  SUPPORTED_CITIES_PATH,
+  SUPPORTED_CITY_HINT,
+  UNSUPPORTED_CITY_CODE,
+} from '@/lib/cities';
 import { absoluteUrl } from '@/lib/site';
 
 const nullableNumber = { type: ['number', 'null'] };
@@ -8,7 +15,7 @@ export const OPENAPI_DOCUMENT = {
   openapi: '3.1.0',
   info: {
     title: 'Pollen Monitor API',
-    version: '1.0.0',
+    version: API_VERSION,
     description:
       'Public, read-only pollen, species, forecast, map, weather, and air-quality data for supported US cities. Pollen concentrations are modeled by Ambee in grains/m³. Risk labels use category-specific National Allergy Bureau thresholds.',
   },
@@ -135,7 +142,7 @@ export const OPENAPI_DOCUMENT = {
             },
           },
           '400': { $ref: '#/components/responses/Error' },
-          '404': { $ref: '#/components/responses/Error' },
+          '404': { $ref: '#/components/responses/UnsupportedCity' },
           '500': { $ref: '#/components/responses/Error' },
         },
       },
@@ -195,6 +202,7 @@ export const OPENAPI_DOCUMENT = {
             },
           },
           '400': { $ref: '#/components/responses/Error' },
+          '404': { $ref: '#/components/responses/UnsupportedCity' },
           '500': { $ref: '#/components/responses/Error' },
         },
       },
@@ -249,7 +257,7 @@ export const OPENAPI_DOCUMENT = {
             },
           },
           '400': { $ref: '#/components/responses/Error' },
-          '404': { $ref: '#/components/responses/Error' },
+          '404': { $ref: '#/components/responses/UnsupportedCity' },
           '500': { $ref: '#/components/responses/Error' },
         },
       },
@@ -275,6 +283,7 @@ export const OPENAPI_DOCUMENT = {
             },
           },
           '400': { $ref: '#/components/responses/Error' },
+          '404': { $ref: '#/components/responses/UnsupportedCity' },
           '500': { $ref: '#/components/responses/Error' },
         },
       },
@@ -315,6 +324,15 @@ export const OPENAPI_DOCUMENT = {
           },
         },
       },
+      UnsupportedCity: {
+        description:
+          'The requested city slug is not supported. Resolve a valid slug through /api/cities or the MCP list_cities tool.',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/UnsupportedCityError' },
+          },
+        },
+      },
     },
     schemas: {
       Date: {
@@ -331,6 +349,20 @@ export const OPENAPI_DOCUMENT = {
         type: 'object',
         required: ['error'],
         properties: { error: { type: 'string' } },
+      },
+      UnsupportedCityError: {
+        type: 'object',
+        required: ['error', 'code', 'city', 'supportedCities', 'mcpTool'],
+        properties: {
+          error: {
+            type: 'string',
+            example: `Unsupported city 'atlantis'. ${SUPPORTED_CITY_HINT}`,
+          },
+          code: { type: 'string', enum: [UNSUPPORTED_CITY_CODE] },
+          city: { type: 'string', example: 'atlantis' },
+          supportedCities: { type: 'string', const: SUPPORTED_CITIES_PATH },
+          mcpTool: { type: 'string', const: MCP_LIST_CITIES_TOOL },
+        },
       },
       City: {
         type: 'object',

@@ -1,4 +1,9 @@
 import { NextRequest } from 'next/server';
+import {
+  resolveCity,
+  unsupportedCityResponse,
+  UnsupportedCityError,
+} from '@/lib/cities';
 import { query } from '@/lib/db';
 
 const addDays = (date: string, days: number) => {
@@ -9,11 +14,12 @@ const addDays = (date: string, days: number) => {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const city = searchParams.get('city');
+  const cityParam = searchParams.get('city');
   const days = Math.max(1, Math.min(120, Number(searchParams.get('days') || '60')));
-  if (!city) return new Response(JSON.stringify({ error: 'city required' }), { status: 400 });
+  if (!cityParam) return Response.json({ error: 'city required' }, { status: 400 });
 
   try {
+    const city = (await resolveCity(cityParam)).slug;
     const { rows: baseRows } = await query<{ date: string }>(
       `SELECT DISTINCT (ts AT TIME ZONE 'UTC')::date::text AS date
        FROM pollen_readings_hourly
@@ -67,9 +73,12 @@ export async function GET(req: NextRequest) {
     });
 
     return Response.json({ city, rows });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    if (e instanceof UnsupportedCityError) {
+      return unsupportedCityResponse(e);
+    }
     console.error('[city-type-matrix] error', e);
-    return new Response(JSON.stringify({ error: 'Database unavailable. Check POSTGRES_URL.' }), { status: 500 });
+    return Response.json({ error: 'Database unavailable. Check POSTGRES_URL.' }, { status: 500 });
   }
 }
 
