@@ -43,10 +43,7 @@ const riskSchema = z
   .nullable()
   .describe('NAB category-specific risk label');
 const speciesSchema = z
-  .record(
-    z.string(),
-    z.union([z.record(z.string(), z.number()), z.number()]),
-  )
+  .record(z.string(), z.union([z.record(z.string(), z.number()), z.number()]))
   .nullable()
   .describe('Pollen category names mapped to allergen concentrations in grains/m³');
 
@@ -69,10 +66,17 @@ const dailyPollenSchema = z.object({
   grass: nullableNumberSchema,
   weed: nullableNumberSchema,
   total: nullableNumberSchema,
+  peak_tree: nullableNumberSchema,
+  peak_grass: nullableNumberSchema,
+  peak_weed: nullableNumberSchema,
+  peak_total: nullableNumberSchema,
   species: speciesSchema,
   risk_tree: riskSchema,
   risk_grass: riskSchema,
   risk_weed: riskSchema,
+  peak_risk_tree: riskSchema,
+  peak_risk_grass: riskSchema,
+  peak_risk_weed: riskSchema,
   timezone: nullableStringSchema,
 });
 
@@ -237,11 +241,7 @@ export async function callMcpApi(path: string, parameters: ApiParameters = {}) {
   }
 }
 
-export async function callMcpCityApi(
-  path: string,
-  city: string,
-  parameters: ApiParameters = {},
-) {
+export async function callMcpCityApi(path: string, city: string, parameters: ApiParameters = {}) {
   try {
     const resolved = await resolveCity(city);
     return callMcpApi(path, { ...parameters, city: resolved.slug });

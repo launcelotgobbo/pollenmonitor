@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import CityDailyExplorer, { DailySummary, HourlyRow } from '@/components/CityDailyExplorer';
-import { resolveCity, UnsupportedCityError } from '@/lib/cities';
-import { getDailyPollenRows, getHourlyPollenRows } from '@/lib/pollen';
+import CityDailyExplorer, { DailySummary } from '@/components/CityDailyExplorer';
+import { getSupportedCities, resolveCity, UnsupportedCityError } from '@/lib/cities';
+import { getDailyPollenRows } from '@/lib/pollen';
 import { absoluteUrl, cityDisplayName, normalizeCitySlug } from '@/lib/site';
 
 type Props = {
@@ -16,8 +16,8 @@ export const revalidate = 3600; // cache city history for 1 hour
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const city = normalizeCitySlug((await params).city);
   const cityLabel = cityDisplayName(city);
-  const title = `${cityLabel} Pollen Count and Ragweed Forecast`;
-  const description = `Check ${cityLabel} tree, grass, and ragweed pollen counts, species breakdowns, NAB risk levels, history, and the next 48-hour forecast.`;
+  const title = `${cityLabel} Daily Pollen Count`;
+  const description = `Check ${cityLabel} daily tree, grass, and ragweed pollen averages, peaks, species breakdowns, and NAB risk levels.`;
   const canonical = `/city/${encodeURIComponent(city)}`;
 
   return {
@@ -58,37 +58,22 @@ export default async function CityPage({ params, searchParams }: Props) {
   }
 
   const dailyRows: DailySummary[] = await getDailyPollenRows(city);
+  const cities = (await getSupportedCities()).map(({ name, slug }) => ({ name, slug }));
 
   const selected =
     resolvedSearchParams?.date && dailyRows.some((row) => row.date === resolvedSearchParams.date)
       ? resolvedSearchParams.date
-      : dailyRows[0]?.date ?? null;
-
-  let hourlyRows: HourlyRow[] = [];
-  let timezone: string | null = null;
-
-  if (selected) {
-    hourlyRows = await getHourlyPollenRows(city, selected);
-    const detectedTimezone = hourlyRows.find((row) => row.timezone)?.timezone;
-    if (typeof detectedTimezone === 'string' && detectedTimezone.trim()) {
-      timezone = detectedTimezone.trim();
-    }
-  }
-
-  if (!timezone) {
-    timezone = dailyRows.find((row) => row.date === selected)?.timezone || dailyRows[0]?.timezone || null;
-  }
+      : (dailyRows[0]?.date ?? null);
 
   const cityLabel = cityDisplayName(city);
-  const selectedDaily = dailyRows.find((row) => row.date === selected) ?? null;
   const cityUrl = absoluteUrl(`/city/${encodeURIComponent(city)}`);
   const apiUrl = new URL('/api/pollen', absoluteUrl('/'));
   apiUrl.searchParams.set('city', city);
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Dataset',
-    name: `${cityLabel} pollen counts and forecast`,
-    description: `Modeled hourly and daily tree, grass, ragweed, and species-level pollen data for ${cityLabel}, with National Allergy Bureau risk levels.`,
+    name: `${cityLabel} daily pollen counts`,
+    description: `Modeled daily tree, grass, ragweed, and species-level pollen data for ${cityLabel}, with averages, peaks, and National Allergy Bureau risk levels.`,
     url: cityUrl,
     isAccessibleForFree: true,
     creator: {
@@ -124,18 +109,24 @@ export default async function CityPage({ params, searchParams }: Props) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+        }}
       />
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-semibold uppercase tracking-wide text-sky-600">Daily pollen overview</p>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{cityLabel} pollen count</h1>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            Daily pollen overview
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            {cityLabel} pollen count
+          </h1>
           <p className="text-sm text-slate-500">
-            Aggregated Ambee readings across the last {dailyRows.length.toLocaleString('en-US')} day(s). Select a day to load
-            hourly detail.
+            Daily averages and peaks across the last {dailyRows.length.toLocaleString('en-US')}{' '}
+            day(s).
           </p>
         </div>
         <Link
@@ -156,30 +147,16 @@ export default async function CityPage({ params, searchParams }: Props) {
         >
           National Allergy Bureau thresholds
         </a>
-        . Weed is labeled Ragweed because it is the sole weed species in the current multi-region dataset.
+        . Weed is labeled Ragweed because it is the sole weed species in the current multi-region
+        dataset.
       </div>
 
-      {selectedDaily ? (
-        <section aria-labelledby="city-pollen-summary" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 id="city-pollen-summary" className="text-lg font-semibold text-slate-900">
-            {cityLabel} pollen summary for {selectedDaily.date}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Modeled daily averages are {selectedDaily.tree ?? 'unavailable'} grains/m³ tree pollen,{' '}
-            {selectedDaily.grass ?? 'unavailable'} grains/m³ grass pollen, and{' '}
-            {selectedDaily.weed ?? 'unavailable'} grains/m³ ragweed. NAB risk levels are tree{' '}
-            {selectedDaily.risk_tree ?? 'unavailable'}, grass {selectedDaily.risk_grass ?? 'unavailable'}, and ragweed{' '}
-            {selectedDaily.risk_weed ?? 'unavailable'}.
-          </p>
-        </section>
-      ) : null}
-
       <CityDailyExplorer
+        key={city}
         city={city}
+        cities={cities}
         summaries={dailyRows}
         initialSelected={selected}
-        initialHourly={hourlyRows}
-        initialTimezone={timezone}
       />
     </div>
   );

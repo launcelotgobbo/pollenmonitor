@@ -7,33 +7,22 @@ export default function Legend() {
     { label: 'No data', color: '#9e9e9e' },
   ];
   return (
-    <div className="rounded-2xl bg-slate-900/75 px-4 py-3 text-slate-50 shadow-xl backdrop-blur-md">
-      <strong className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-        Pollen risk, daily maxima
+    <div className="max-w-[calc(100vw-1.5rem)] rounded-xl bg-slate-950/80 px-3 py-2.5 text-slate-50 shadow-xl backdrop-blur-md sm:max-w-[calc(100vw-6rem)] sm:rounded-2xl sm:px-4 sm:py-3">
+      <strong className="text-[10px] font-semibold uppercase tracking-wide text-slate-300 sm:text-xs">
+        Daily peak risk
       </strong>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:mt-2 sm:gap-3">
         {items.map((it) => (
           <div key={it.label} className="flex items-center gap-1.5">
             <span
               aria-hidden
-              className="inline-block h-3 w-3 rounded-sm"
+              className="inline-block h-2.5 w-2.5 rounded-sm sm:h-3 sm:w-3"
               style={{ background: it.color }}
             />
-            <span className="text-xs">{it.label}</span>
+            <span className="text-[10px] sm:text-xs">{it.label}</span>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] leading-4 text-slate-300">
-        Each category shows its highest hourly reading for the selected day.
-      </p>
-      <a
-        href="https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts"
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 block text-[11px] text-slate-300 underline decoration-slate-500 underline-offset-2 hover:text-white"
-      >
-        NAB category thresholds
-      </a>
     </div>
   );
 }

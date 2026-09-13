@@ -10,19 +10,20 @@ export const metadata: Metadata = {
     default: 'Pollen Monitor',
     template: '%s | Pollen Monitor',
   },
-  description: 'Check modeled tree, grass, and ragweed pollen counts, risks, history, and forecasts across US cities.',
+  description:
+    'Check modeled daily tree, grass, and ragweed pollen averages, peaks, and risks across US cities.',
   applicationName: 'Pollen Monitor',
   openGraph: {
     type: 'website',
     siteName: 'Pollen Monitor',
     title: 'Pollen Monitor',
-    description: 'City pollen counts, species breakdowns, NAB risk levels, and 48-hour forecasts.',
+    description: 'Daily city pollen averages, peaks, species breakdowns, and NAB risk levels.',
     url: '/',
   },
   twitter: {
     card: 'summary',
     title: 'Pollen Monitor',
-    description: 'City pollen counts, species breakdowns, NAB risk levels, and 48-hour forecasts.',
+    description: 'Daily city pollen averages, peaks, species breakdowns, and NAB risk levels.',
   },
 };
 
@@ -31,7 +32,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <link rel="service-desc" type="application/vnd.oai.openapi+json" href="/openapi.json" />
-        <link rel="alternate" type="text/plain" href="/llms.txt" title="Pollen Monitor agent guide" />
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms.txt"
+          title="Pollen Monitor agent guide"
+        />
       </head>
       <body className="min-h-screen bg-slate-50">
         {children}

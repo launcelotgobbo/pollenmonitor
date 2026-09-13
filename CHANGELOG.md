@@ -1,5 +1,21 @@
 # API Changelog
 
+## 2.3.0 — 2026-09-13
+
+### Added
+
+- Daily city rows now include peak category and total values plus peak risk
+  labels alongside the existing daily averages.
+- Sentry captures client, server, edge, and global application errors when
+  `NEXT_PUBLIC_SENTRY_DSN` is configured.
+
+### Changed
+
+- The website now uses a latest-only map and a daily-only city view optimized
+  for mobile screens.
+- Hourly observations and forecasts remain available through the public API
+  and MCP tools but are no longer rendered on city pages.
+
 ## 2.2.1 — 2026-08-26
 
 ### Fixed

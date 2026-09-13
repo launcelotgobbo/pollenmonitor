@@ -1,7 +1,6 @@
-import type { DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
+import type { DailyPollenRow } from '@/lib/pollen-types';
 
 export type DailySummary = DailyPollenRow;
-export type HourlyRow = HourlyPollenRow;
 
 export type WeatherDaily = {
   date: string;

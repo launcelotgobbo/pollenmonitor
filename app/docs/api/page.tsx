@@ -19,7 +19,8 @@ export default function ApiDocsPage() {
       <header className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">API Reference</h1>
         <p className="text-sm text-slate-600">
-          Query public pollen, species, forecast, map, weather, and air-quality data. All data endpoints are read-only JSON.
+          Query public pollen, species, forecast, map, weather, and air-quality data. All data
+          endpoints are read-only JSON.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href="/map" className={linkStyles}>
@@ -46,16 +47,13 @@ export default function ApiDocsPage() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Authentication and browser access</h2>
         <p className="text-sm leading-6 text-slate-600">
-          API version {API_VERSION} endpoints are publicly readable, require no API key,
-          and allow cross-origin browser requests. Successful data responses use a
-          five-minute shared cache with stale-while-revalidate.
+          API version {API_VERSION} endpoints are publicly readable, require no API key, and allow
+          cross-origin browser requests. Successful data responses use a five-minute shared cache
+          with stale-while-revalidate.
         </p>
         <p className="text-sm leading-6 text-slate-600">
           Use the{' '}
-          <Link
-            href="/docs/api/explorer"
-            className="font-semibold underline underline-offset-2"
-          >
+          <Link href="/docs/api/explorer" className="font-semibold underline underline-offset-2">
             interactive Swagger UI
           </Link>{' '}
           to inspect complete response examples and run safe <code>GET</code> requests.
@@ -66,12 +64,12 @@ export default function ApiDocsPage() {
         <h2 className="text-xl font-semibold">Quickstart example</h2>
         <h3 className="text-sm font-semibold text-slate-700">curl</h3>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`curl --fail --silent --show-error \\
+          {`curl --fail --silent --show-error \\
   '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25'`}
         </pre>
         <h3 className="text-sm font-semibold text-slate-700">JavaScript</h3>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`const response = await fetch(
+          {`const response = await fetch(
   '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25'
 );
 if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
@@ -79,7 +77,7 @@ const data = await response.json();`}
         </pre>
         <h3 className="text-sm font-semibold text-slate-700">Python</h3>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`import requests
+          {`import requests
 
 response = requests.get(
     '${baseUrl}/api/pollen?city=berkeley&date=2026-08-25',
@@ -89,8 +87,8 @@ response.raise_for_status()
 data = response.json()`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          A successful response has this shape. The OpenAPI contract includes
-          equivalent curl, JavaScript, and Python samples for every operation.
+          A successful response has this shape. The OpenAPI contract includes equivalent curl,
+          JavaScript, and Python samples for every operation.
         </p>
         <pre className="max-h-96 overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
           {JSON.stringify(API_EXAMPLES.hourlyPollen, null, 2)}
@@ -100,7 +98,7 @@ data = response.json()`}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Available dates</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/available-dates
+          {`GET ${baseUrl}/api/available-dates
 GET ${baseUrl}/api/latest-date`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
@@ -111,7 +109,8 @@ GET ${baseUrl}/api/latest-date`}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Units and risk methodology</h2>
         <p className="text-sm leading-6 text-slate-600">
-          Values are modeled Ambee pollen concentrations in grains/m³. Risk labels use category-specific{' '}
+          Values are modeled Ambee pollen concentrations in grains/m³. Risk labels use
+          category-specific{' '}
           <a
             href="https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts"
             target="_blank"
@@ -120,84 +119,102 @@ GET ${baseUrl}/api/latest-date`}
           >
             National Allergy Bureau (NAB) ranges
           </a>
-          : Weed/Ragweed 10, 50, 500; Grass 5, 20, 200; Tree 15, 90, 1500. Zero is None, and multi-species
-          categories are graded by the highest individual allergen rather than the category sum.
+          : Weed/Ragweed 10, 50, 500; Grass 5, 20, 200; Tree 15, 90, 1500. Zero is None, and
+          multi-species categories are graded by the highest individual allergen rather than the
+          category sum.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Cities</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/cities`}
+          {`GET ${baseUrl}/api/cities`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Returns an alphabetised list of supported cities with both display names and URL-safe slugs.
+          Returns an alphabetised list of supported cities with both display names and URL-safe
+          slugs.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Hourly readings</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/pollen?city=san-francisco&date=2024-04-14`}
+          {`GET ${baseUrl}/api/pollen?city=san-francisco&date=2024-04-14`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Provide both <code>city</code> and <code>date</code> (UTC) to retrieve all hourly observations for that day, including per-species values and NAB category risk labels.
+          Provide both <code>city</code> and <code>date</code> (UTC) to retrieve all hourly
+          observations for that day, including per-species values and NAB category risk labels.
         </p>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Daily averages</h2>
+        <h2 className="text-xl font-semibold">Daily summaries</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/pollen?city=san-francisco`}
+          {`GET ${baseUrl}/api/pollen?city=san-francisco`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Omit the <code>date</code> parameter to receive up to 720 daily averages for a city, including per-species averages rounded to whole numbers.
+          Omit the <code>date</code> parameter to receive up to 720 daily summaries for a city. Each
+          row includes rounded averages, daily peaks, peak risk levels, and per-species averages.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Cross-city map data</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/map-data?date=latest`}
+          {`GET ${baseUrl}/api/map-data?date=latest`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Compact GeoJSON with one point per city, daily category and Ragweed maxima,
-          NAB risks, coordinates, timezone, and a three-day series. The response includes{' '}
-          <code>aggregation: daily-category-maxima</code>; full species blobs are omitted
-          to keep cross-city responses small.
+          Compact GeoJSON with one point per city, daily category and Ragweed maxima, NAB risks,
+          coordinates, timezone, and a three-day series. The response includes{' '}
+          <code>aggregation: daily-category-maxima</code>; full species blobs are omitted to keep
+          cross-city responses small.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">48-hour forecast</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/forecast?city=denver`}
+          {`GET ${baseUrl}/api/forecast?city=denver`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Hourly pollen forecast for the next 48 hours (Ambee), including species when supplied by the provider. Responses are cached server-side for up to 6 hours per city. If an upstream refresh fails, the most recent cached rows are returned with <code>stale: true</code>. When the daily provider quota blocks a refresh, the response also includes <code>quotaExhausted: true</code>.
+          Hourly pollen forecast for the next 48 hours (Ambee), including species when supplied by
+          the provider. Responses are cached server-side for up to 6 hours per city. If an upstream
+          refresh fails, the most recent cached rows are returned with <code>stale: true</code>.
+          When the daily provider quota blocks a refresh, the response also includes{' '}
+          <code>quotaExhausted: true</code>.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Daily weather</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/weather?city=denver&date=2026-07-08`}
+          {`GET ${baseUrl}/api/weather?city=denver&date=2026-07-08`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Daily weather and air-quality observations (OpenWeather) collected alongside pollen data. Provide <code>city</code>, <code>date</code>, or both: <code>city</code> alone returns up to 365 days (newest first), <code>date</code> alone returns a compact per-city snapshot for that day. Measurements unavailable from the provider are omitted rather than returned as <code>null</code>.
+          Daily weather and air-quality observations (OpenWeather) collected alongside pollen data.
+          Provide <code>city</code>, <code>date</code>, or both: <code>city</code> alone returns up
+          to 365 days (newest first), <code>date</code> alone returns a compact per-city snapshot
+          for that day. Measurements unavailable from the provider are omitted rather than returned
+          as <code>null</code>.
         </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Custom ranges</h2>
         <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100 shadow-inner">
-{`GET ${baseUrl}/api/pollen-range?from=2024-04-01&to=2024-04-15&city=denver&aggregate=day`}
+          {`GET ${baseUrl}/api/pollen-range?from=2024-04-01&to=2024-04-15&city=denver&aggregate=day`}
         </pre>
         <p className="text-sm leading-6 text-slate-600">
-          Use <code>/api/pollen-range</code> for arbitrary windows. Supply <code>from</code> and <code>to</code>, optionally filter by <code>city</code>, and set <code>aggregate=day</code> for daily summaries. Hourly and daily modes return the same flat row shape.
+          Use <code>/api/pollen-range</code> for arbitrary windows. Supply <code>from</code> and{' '}
+          <code>to</code>, optionally filter by <code>city</code>, and set{' '}
+          <code>aggregate=day</code> for daily summaries. Hourly and daily modes return the same
+          flat row shape.
         </p>
         <p className="text-xs leading-5 text-slate-500">
-          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code> (comma-separated slugs), <code>aggregate</code> (strictly <code>none</code> or <code>day</code>; unknown values return 400), <code>limit</code> (integer from 1–50 000, defaults to 20 000; invalid values return 400).
+          Parameters: <code>from</code> (required), <code>to</code> (required), <code>city</code>{' '}
+          (comma-separated slugs), <code>aggregate</code> (strictly <code>none</code> or{' '}
+          <code>day</code>; unknown values return 400), <code>limit</code> (integer from 1–50 000,
+          defaults to 20 000; invalid values return 400).
         </p>
       </section>
 

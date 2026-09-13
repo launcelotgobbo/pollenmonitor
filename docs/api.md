@@ -18,11 +18,11 @@ Machine-readable and agent-oriented discovery:
 
 Pollen values are modeled Ambee concentrations in grains/m³. Category risk labels are calculated by Pollen Monitor using the [National Allergy Bureau (NAB) ranges](https://www.aaaai.org/global/nab-pollen-counts/reading-the-charts):
 
-| Category | Low | Moderate | High | Very High |
-|----------|-----|----------|------|-----------|
-| Weed/Ragweed | 1–9 | 10–49 | 50–499 | 500+ |
-| Grass | 1–4 | 5–19 | 20–199 | 200+ |
-| Tree | 1–14 | 15–89 | 90–1499 | 1500+ |
+| Category     | Low  | Moderate | High    | Very High |
+| ------------ | ---- | -------- | ------- | --------- |
+| Weed/Ragweed | 1–9  | 10–49    | 50–499  | 500+      |
+| Grass        | 1–4  | 5–19     | 20–199  | 200+      |
+| Tree         | 1–14 | 15–89    | 90–1499 | 1500+     |
 
 Zero is reported as `None`. When a category contains multiple species, its risk is based on the highest individual species value rather than the category sum because the NAB ranges apply per allergen.
 
@@ -104,9 +104,10 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco&date=2024-04-14
 }
 ```
 
-### Daily averages
+### Daily summaries
 
-Provide only `city` to receive up to the last 720 days of rounded daily averages.
+Provide only `city` to receive up to the last 720 days of rounded daily
+averages and highest hourly values for each day.
 
 ```http
 GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
@@ -122,6 +123,10 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
       "grass": 7,
       "weed": 2,
       "total": 28,
+      "peak_tree": 31,
+      "peak_grass": 11,
+      "peak_weed": 5,
+      "peak_total": 47,
       "species": {
         "Tree": { "Oak": 12, "Pine": 7 },
         "Grass": { "Grass": 7 },
@@ -130,6 +135,9 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/pollen?city=san-francisco
       "risk_tree": "Low",
       "risk_grass": "Moderate",
       "risk_weed": "Low",
+      "peak_risk_tree": "Moderate",
+      "peak_risk_grass": "Moderate",
+      "peak_risk_weed": "Low",
       "timezone": "America/Los_Angeles"
     }
   ]
@@ -152,13 +160,13 @@ All city-aware endpoints return the same structured `404` response for unsupport
 
 Query data over arbitrary date windows. Supports hourly data (`aggregate=none`, the default) or per-day averages (`aggregate=day`). Both modes return the same flat row shape. Optional `city` accepts a comma-separated list; omit it for all cities.
 
-| Parameter   | Required | Description                                     |
-|-------------|----------|-------------------------------------------------|
-| `from`      | ✅        | Start (inclusive). Accepts `YYYY-MM-DD` or RFC 3339. |
-| `to`        | ✅        | End (exclusive). Must be after `from`.         |
-| `city`      | ❌        | Comma-separated city slugs.                     |
-| `aggregate` | ❌        | `none` or `day`; other values return `400`.     |
-| `limit`     | ❌        | Integer row cap (1–50 000, default 20 000); invalid values return `400`. |
+| Parameter   | Required | Description                                                              |
+| ----------- | -------- | ------------------------------------------------------------------------ |
+| `from`      | ✅       | Start (inclusive). Accepts `YYYY-MM-DD` or RFC 3339.                     |
+| `to`        | ✅       | End (exclusive). Must be after `from`.                                   |
+| `city`      | ❌       | Comma-separated city slugs.                                              |
+| `aggregate` | ❌       | `none` or `day`; other values return `400`.                              |
+| `limit`     | ❌       | Integer row cap (1–50 000, default 20 000); invalid values return `400`. |
 
 ### Hourly example
 
@@ -269,11 +277,11 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/map-data?date=latest
 Daily weather and air-quality observations (OpenWeather) collected alongside pollen data. Fields unavailable from the provider are omitted instead of being returned as `null`.
 
 | Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `city`    | ❌*       | City slug. Alone: up to 365 days, newest first.       |
-| `date`    | ❌*       | `YYYY-MM-DD`. Alone: cross-city snapshot for the day. |
+| --------- | -------- | ----------------------------------------------------- |
+| `city`    | ❌\*     | City slug. Alone: up to 365 days, newest first.       |
+| `date`    | ❌\*     | `YYYY-MM-DD`. Alone: cross-city snapshot for the day. |
 
-*Provide `city`, `date`, or both.
+\*Provide `city`, `date`, or both.
 
 ```http
 GET ${NEXT_PUBLIC_BASE_URL}/api/weather?city=denver&date=2026-07-08
@@ -310,8 +318,8 @@ The date-only variant returns a compact per-city snapshot (`city_slug`, `date`, 
 48-hour hourly pollen forecast for one city (Ambee v3). Responses are cached server-side for up to 6 hours per city. If an upstream refresh fails while cached rows exist, the endpoint serves those rows with `stale: true` instead of returning `500`. Upstream fetches also stop once the daily Ambee quota is nearly exhausted.
 
 | Parameter | Required | Description |
-|-----------|----------|-------------|
-| `city`    | ✅        | City slug.  |
+| --------- | -------- | ----------- |
+| `city`    | ✅       | City slug.  |
 
 ```http
 GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver

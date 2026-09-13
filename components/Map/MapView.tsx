@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import MapCanvas from '@/components/Map/MapCanvas';
 import Legend from '@/components/Map/Legend';
 import type { PollenType } from '@/components/Map/pollenLayer';
@@ -14,133 +14,71 @@ const POLLEN_TYPES: { value: PollenType; label: string }[] = [
 ];
 
 export default function MapView() {
-  const [date, setDate] = useState<string>('');
   const [pollenType, setPollenType] = useState<PollenType>('total');
-  const [dates, setDates] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [resolvedDate, setResolvedDate] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-
-  // The date list only feeds the dropdown; the map itself starts fetching the
-  // latest day immediately (MapCanvas resolves "latest" server-side), so this
-  // request never blocks the first render.
-  useEffect(() => {
-    async function loadDates() {
-      setLoading(true);
-      setError(null);
-      try {
-        const listRes = await fetch('/api/available-dates');
-        const list = await listRes.json();
-        const all: string[] = Array.isArray(list?.dates) ? list.dates : [];
-        const today = new Date().toISOString().slice(0, 10);
-        const available = all.filter((candidate) => candidate <= today);
-        setDates((current) =>
-          [...new Set([...available, ...current])].sort((a, b) =>
-            b.localeCompare(a),
-          ),
-        );
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load available dates');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDates();
-  }, []);
 
   return (
     <div className="relative h-[100dvh] w-screen overflow-hidden bg-slate-950">
       <MapCanvas
-        date={date}
+        date=""
         pollenType={pollenType}
-        onDateResolved={(resolved) => {
-          setDate((current) => current || resolved);
-          setDates((current) =>
-            current.includes(resolved)
-              ? current
-              : [resolved, ...current].sort((a, b) => b.localeCompare(a)),
-          );
-        }}
+        onDateResolved={setResolvedDate}
+        onError={() => setError('Map data is unavailable.')}
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 py-4 sm:px-6">
-        <div className="pointer-events-auto flex w-full max-w-5xl flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/85 p-4 text-slate-50 shadow-2xl backdrop-blur-md lg:flex-row lg:items-end">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Observation date
-              </span>
-              <select
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                disabled={!dates.length}
-                className="h-10 min-w-[170px] rounded-xl border border-white/10 bg-slate-800/90 px-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-slate-800/40"
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-3 pt-3 sm:px-5 sm:pt-5">
+        <div className="pointer-events-auto mx-auto flex w-full max-w-3xl items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/90 p-2.5 text-slate-50 shadow-2xl backdrop-blur-md sm:p-3">
+          <Link href="/" className="hidden shrink-0 px-2 text-sm font-bold tracking-tight sm:block">
+            Pollen Monitor
+          </Link>
+          <div
+            role="radiogroup"
+            aria-label="Pollen category"
+            className="grid h-10 min-w-0 flex-1 grid-cols-4 gap-1 rounded-xl bg-slate-800/90 p-1"
+          >
+            {POLLEN_TYPES.map((type) => (
+              <button
+                key={type.value}
+                type="button"
+                role="radio"
+                aria-checked={pollenType === type.value}
+                onClick={() => setPollenType(type.value)}
+                className={`min-w-0 rounded-lg px-1 text-[11px] font-semibold transition sm:px-3 sm:text-sm ${
+                  pollenType === type.value
+                    ? 'bg-sky-500 text-white shadow-sm'
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
               >
-                {(dates.length ? dates : date ? [date] : []).map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Pollen category
-              </span>
-              <div
-                role="radiogroup"
-                aria-label="Pollen category"
-                className="grid h-10 grid-cols-4 gap-1 rounded-xl border border-white/10 bg-slate-800/90 p-1"
-              >
-                {POLLEN_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={pollenType === type.value}
-                    onClick={() => setPollenType(type.value)}
-                    className={`rounded-lg px-2 text-xs font-semibold transition sm:px-3 sm:text-sm ${
-                      pollenType === type.value
-                        ? 'bg-sky-500 text-white shadow-sm'
-                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {type.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                {type.label}
+              </button>
+            ))}
           </div>
-
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-white/10 pt-3 text-xs lg:w-56 lg:flex-col lg:items-start lg:justify-start lg:border-l lg:border-t-0 lg:pb-0.5 lg:pl-4 lg:pt-0">
-            <div className="leading-5 text-slate-300">
-              <p>Hover for daily maximum data</p>
-              <p className="text-slate-400">Tap a city to open details</p>
-            </div>
-            <Link
-              href="/docs/api"
-              className="inline-flex items-center whitespace-nowrap rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-sky-300/50 hover:bg-sky-400/10 hover:text-white"
-            >
-              API &amp; MCP docs
-            </Link>
-            {loading && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                Loading map data…
-              </span>
-            )}
-            {error && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-200">
-                {error}
-              </span>
-            )}
+          <div className="hidden shrink-0 text-right text-[10px] leading-4 text-slate-400 md:block">
+            <p>{resolvedDate || 'Latest data'}</p>
+            <p>Daily peak</p>
           </div>
         </div>
+        {error ? (
+          <p className="pointer-events-auto mx-auto mt-2 w-fit rounded-full bg-rose-950/90 px-3 py-1 text-xs text-rose-100">
+            {error}
+          </p>
+        ) : null}
       </div>
 
-      <div className="pointer-events-none absolute bottom-6 left-4 z-10 sm:left-6">
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 sm:bottom-5 sm:left-5">
         <div className="pointer-events-auto">
           <Legend />
         </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden sm:block sm:bottom-5 sm:right-5">
+        <Link
+          href="/docs/api"
+          className="pointer-events-auto rounded-full border border-white/10 bg-slate-950/80 px-3 py-2 text-[11px] font-semibold text-slate-300 shadow-lg backdrop-blur-md transition hover:text-white"
+        >
+          Data API
+        </Link>
       </div>
     </div>
   );

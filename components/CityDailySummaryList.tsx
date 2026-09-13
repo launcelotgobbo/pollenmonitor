@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { formatNumeric } from '@/components/CityDaily/format';
 import type { DailySummary } from '@/components/CityDaily/types';
 
 type Props = {
@@ -8,13 +8,6 @@ type Props = {
   selected?: string | null;
   onSelect?: (date: string) => void;
 };
-
-const longFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
 
 const shortFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -30,28 +23,14 @@ function formatDateLabel(value: string) {
   }
 }
 
-function formatLongLabel(value: string) {
-  try {
-    return longFormatter.format(new Date(`${value}T00:00:00Z`));
-  } catch {
-    return value;
-  }
-}
-
-function formatValue(value: number | null | undefined) {
-  return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
-}
-
 export default function CityDailySummaryList({ days, selected, onSelect }: Props) {
-  const items = useMemo(() => days ?? [], [days]);
-
-  if (!items.length) {
+  if (!days.length) {
     return <p className="text-sm text-slate-500">No daily data captured yet for this city.</p>;
   }
 
   return (
     <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
-      {items.map((day) => {
+      {days.map((day) => {
         const isSelected = selected === day.date;
         return (
           <button
@@ -66,35 +45,43 @@ export default function CityDailySummaryList({ days, selected, onSelect }: Props
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
+                <p
+                  className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}
+                >
                   {formatDateLabel(day.date)}
                 </p>
-                <p className="text-[11px] text-slate-500">Avg total {formatValue(day.total)} grains/m³</p>
+                <p className="text-[11px] text-slate-500">
+                  Avg {formatNumeric(day.total)} · Peak {formatNumeric(day.peak_total)} grains/m³
+                </p>
               </div>
-              <span className="text-xs font-semibold text-slate-400">{isSelected ? 'Viewing' : 'Select'}</span>
+              <span className="text-xs font-semibold text-slate-400">
+                {isSelected ? 'Viewing' : 'Select'}
+              </span>
             </div>
-            <dl className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500 sm:grid-cols-4">
+            <dl className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500">
               <div className="space-y-1">
-                <dt className="font-medium uppercase tracking-wide text-slate-400">Tree</dt>
-                <dd className={`text-sm font-semibold ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}>
-                  {formatValue(day.tree)}
+                <dt className="font-medium uppercase tracking-wide text-slate-400">Tree avg</dt>
+                <dd
+                  className={`text-sm font-semibold ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}
+                >
+                  {formatNumeric(day.tree)}
                 </dd>
               </div>
               <div className="space-y-1">
-                <dt className="font-medium uppercase tracking-wide text-slate-400">Grass</dt>
-                <dd className={`text-sm font-semibold ${isSelected ? 'text-lime-700' : 'text-slate-700'}`}>
-                  {formatValue(day.grass)}
+                <dt className="font-medium uppercase tracking-wide text-slate-400">Grass avg</dt>
+                <dd
+                  className={`text-sm font-semibold ${isSelected ? 'text-lime-700' : 'text-slate-700'}`}
+                >
+                  {formatNumeric(day.grass)}
                 </dd>
               </div>
               <div className="space-y-1">
-                <dt className="font-medium uppercase tracking-wide text-slate-400">Ragweed</dt>
-                <dd className={`text-sm font-semibold ${isSelected ? 'text-amber-700' : 'text-slate-700'}`}>
-                  {formatValue(day.weed)}
+                <dt className="font-medium uppercase tracking-wide text-slate-400">Ragweed avg</dt>
+                <dd
+                  className={`text-sm font-semibold ${isSelected ? 'text-amber-700' : 'text-slate-700'}`}
+                >
+                  {formatNumeric(day.weed)}
                 </dd>
-              </div>
-              <div className="hidden space-y-1 sm:block">
-                <dt className="font-medium uppercase tracking-wide text-slate-400">Date</dt>
-                <dd className="text-sm text-slate-600">{formatLongLabel(day.date)}</dd>
               </div>
             </dl>
           </button>

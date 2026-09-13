@@ -21,7 +21,7 @@ browser requests. MCP tools are read-only and publish input and output schemas.
 ## Tool selection
 
 1. Resolve a supported city slug with /api/cities.
-2. Use /api/pollen?city={slug} for up to 720 daily averages.
+2. Use /api/pollen?city={slug} for up to 720 daily summaries with averages and peaks.
 3. Add &date=YYYY-MM-DD for hourly observations on one UTC calendar day.
 4. Use /api/pollen-range for a bounded custom range. The upper bound is exclusive.
 5. Use /api/map-data?date=latest for compact comparisons across all cities.
@@ -58,7 +58,8 @@ GET ${absoluteUrl('/api/weather?city=berkeley&date=2026-08-25')}
   (application/geo+json).
 - Pollen fields are tree, grass, weed, and total. Missing pollen measurements
   are null; unavailable optional weather measurements are omitted.
-- Daily pollen history and aggregate=day use daily averages.
+- Daily pollen history includes daily averages plus peak_* fields for the
+  highest hourly observations. aggregate=day uses daily averages.
 - Map values use each category's highest hourly reading for the selected day
   and declare aggregation: "daily-category-maxima".
 - Dates are UTC YYYY-MM-DD. Timestamps are RFC 3339.

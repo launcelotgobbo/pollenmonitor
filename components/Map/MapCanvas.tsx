@@ -4,16 +4,23 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_VIEW, getStyleUrl } from '@/lib/map';
 import { useEffect, useRef, useState } from 'react';
-import { addStateBoundaries, setPollenTypePaint, upsertPollenData, type PollenType } from './pollenLayer';
+import {
+  addStateBoundaries,
+  setPollenTypePaint,
+  upsertPollenData,
+  type PollenType,
+} from './pollenLayer';
 
 export default function MapCanvas({
   date,
   pollenType = 'total',
   onDateResolved,
+  onError,
 }: {
   date: string;
   pollenType?: PollenType;
   onDateResolved?: (date: string) => void;
+  onError?: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -22,10 +29,15 @@ export default function MapCanvas({
   const typeRef = useRef(pollenType);
   const lastFetchedDateRef = useRef<string | null>(null);
   const onDateResolvedRef = useRef(onDateResolved);
+  const onErrorRef = useRef(onError);
 
   useEffect(() => {
     onDateResolvedRef.current = onDateResolved;
   }, [onDateResolved]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     dateRef.current = date;
@@ -55,13 +67,17 @@ export default function MapCanvas({
     map.on('load', () => {
       setMapLoaded(true);
       // Ensure correct sizing in case container dimensions changed pre-load
-      try { map.resize(); } catch {}
+      try {
+        map.resize();
+      } catch {}
       addStateBoundaries(map);
       // Data fetch is handled by the effect watching mapLoaded + date
     });
 
     const onResize = () => {
-      try { map.resize(); } catch {}
+      try {
+        map.resize();
+      } catch {}
     };
     window.addEventListener('resize', onResize);
 
@@ -89,13 +105,8 @@ export default function MapCanvas({
         upsertPollenData(map, geojson, () => dateRef.current, typeRef.current);
         if (!date && resolved) onDateResolvedRef.current?.(resolved);
       })
-      .catch(() => {});
+      .catch(() => onErrorRef.current?.());
   }, [date, mapLoaded]);
 
-  return (
-    <div
-      ref={ref}
-      style={{ height: '100%', width: '100%', overflow: 'hidden' }}
-    />
-  );
+  return <div ref={ref} style={{ height: '100%', width: '100%', overflow: 'hidden' }} />;
 }
