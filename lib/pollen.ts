@@ -1,7 +1,7 @@
 import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
 import { utcDayWindow } from '@/lib/date';
 import type { DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
-import { withNabRisk } from '@/lib/risk';
+import { pollenRisk, withNabRisk } from '@/lib/risk';
 import { normalizeSpecies } from '@/lib/species';
 
 export type DailyPollenDbRow = {
@@ -10,14 +10,15 @@ export type DailyPollenDbRow = {
   grass: number | null;
   weed: number | null;
   total: number | null;
+  peak_tree: number | null;
+  peak_grass: number | null;
+  peak_weed: number | null;
+  peak_total: number | null;
   timezone: string | null;
   species: unknown;
 };
 
-export async function getHourlyPollenRows(
-  city: string,
-  date: string,
-): Promise<HourlyPollenRow[]> {
+export async function getHourlyPollenRows(city: string, date: string): Promise<HourlyPollenRow[]> {
   const { dayStart, dayEnd } = utcDayWindow(date);
   const { rows } = await query<{
     ts: string;
@@ -76,6 +77,13 @@ export async function getDailyPollenRows(city: string): Promise<DailyPollenRow[]
               WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
               ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
             END))::int AS total,
+            max(tree)::int AS peak_tree,
+            max(grass)::int AS peak_grass,
+            max(weed)::int AS peak_weed,
+            max(CASE
+              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
+              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
+            END)::int AS peak_total,
             max(tz) AS timezone
        FROM filtered
        GROUP BY 1
@@ -124,11 +132,18 @@ export function toDailyPollenRows(rows: DailyPollenDbRow[]): DailyPollenRow[] {
       grass: row.grass,
       weed: row.weed,
       total: row.total,
+      peak_tree: row.peak_tree,
+      peak_grass: row.peak_grass,
+      peak_weed: row.peak_weed,
+      peak_total: row.peak_total,
       timezone: row.timezone,
       species,
       risk_tree: classified.risk_tree,
       risk_grass: classified.risk_grass,
       risk_weed: classified.risk_weed,
+      peak_risk_tree: pollenRisk('tree', row.peak_tree),
+      peak_risk_grass: pollenRisk('grass', row.peak_grass),
+      peak_risk_weed: pollenRisk('weed', row.peak_weed),
     };
   });
 }
