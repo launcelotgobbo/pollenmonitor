@@ -36,6 +36,5 @@ export default withSentryConfig(nextConfig, {
     treeshake: {
       removeDebugLogging: true,
     },
-    automaticVercelMonitors: true,
   },
 });

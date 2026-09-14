@@ -56,12 +56,13 @@ test('daily pollen rows use the canonical measurement names', () => {
       grass: 5,
       weed: 2,
       total: 27,
-      peak_tree: 31,
+      peak_tree: 100,
       peak_grass: 8,
       peak_weed: 6,
       peak_total: 45,
       timezone: 'America/Denver',
       species: { Weed: { Ragweed: 2 } },
+      peak_species: { Tree: { Alder: 70, Elm: 40 } },
     },
   ]);
 
@@ -87,7 +88,7 @@ test('daily pollen rows use the canonical measurement names', () => {
   assert.equal('avg_tree' in row, false);
   assert.equal(row.tree, 20);
   assert.equal(row.total, 27);
-  assert.equal(row.peak_tree, 31);
+  assert.equal(row.peak_tree, 100);
   assert.equal(row.peak_total, 45);
   assert.equal(row.peak_risk_tree, 'Moderate');
 });

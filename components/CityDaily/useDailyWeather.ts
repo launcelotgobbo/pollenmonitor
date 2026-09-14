@@ -1,25 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WeatherDaily } from './types';
 
-type Options = {
-  city: string;
-  initialSelected: string | null;
-};
-
-export function useDailySelection({ city, initialSelected }: Options) {
-  const [selectedDate, setSelectedDate] = useState(initialSelected);
+export function useDailyWeather({ city, date }: { city: string; date: string | null }) {
   const [weatherRows, setWeatherRows] = useState<WeatherDaily[]>([]);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const [, startTransition] = useTransition();
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
-    if (!selectedDate) {
+    if (!date) {
       setWeatherRows([]);
       return;
     }
@@ -31,12 +24,9 @@ export function useDailySelection({ city, initialSelected }: Options) {
     setWeatherError(null);
     setWeatherRows([]);
 
-    fetch(
-      `/api/weather?city=${encodeURIComponent(city)}&date=${encodeURIComponent(selectedDate)}`,
-      {
-        signal: controller.signal,
-      },
-    )
+    fetch(`/api/weather?city=${encodeURIComponent(city)}&date=${encodeURIComponent(date)}`, {
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
         const json = await response.json();
@@ -61,23 +51,7 @@ export function useDailySelection({ city, initialSelected }: Options) {
       });
 
     return () => controller.abort();
-  }, [city, selectedDate]);
+  }, [city, date]);
 
-  const handleSelect = (date: string) => {
-    setSelectedDate(date);
-    startTransition(() => {
-      const url = new URL(window.location.href);
-      if (date) url.searchParams.set('date', date);
-      else url.searchParams.delete('date');
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-    });
-  };
-
-  return {
-    selectedDate,
-    weatherRows,
-    isLoadingWeather,
-    weatherError,
-    handleSelect,
-  };
+  return { weatherRows, isLoadingWeather, weatherError };
 }
