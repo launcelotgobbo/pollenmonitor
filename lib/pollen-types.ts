@@ -21,6 +21,19 @@ export type DailyPollenRow = {
   peak_risk_weed: PollenRisk | null;
 };
 
+export type DailyPollenHistoryRow = Pick<
+  DailyPollenRow,
+  | 'date'
+  | 'tree'
+  | 'grass'
+  | 'weed'
+  | 'total'
+  | 'peak_tree'
+  | 'peak_grass'
+  | 'peak_weed'
+  | 'peak_total'
+>;
+
 export type HourlyPollenRow = {
   ts: string;
   tree: number | null;

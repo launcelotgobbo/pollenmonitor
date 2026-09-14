@@ -11,8 +11,10 @@
 
 ### Changed
 
-- The website now uses a latest-only map and a daily-only city view optimized
-  for mobile screens.
+- The website now uses a latest-only map with bottom-anchored category
+  controls and a compact layer menu on mobile.
+- City pages now show the latest day in detail followed by a table containing
+  the complete captured daily history.
 - Hourly observations and forecasts remain available through the public API
   and MCP tools but are no longer rendered on city pages.
 

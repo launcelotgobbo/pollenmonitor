@@ -90,12 +90,12 @@ export default function DaySnapshot({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              Daily summary
+              Latest daily detail
             </p>
             <p className="text-xs text-slate-500">
               {selectedLabel
                 ? `${selectedLabel}. Daily averages and highest observed values.`
-                : 'Choose a day to view its summary.'}
+                : 'No daily detail is available.'}
             </p>
           </div>
           {selectedLabel ? (

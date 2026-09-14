@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import CityDailyExplorer, { DailySummary } from '@/components/CityDailyExplorer';
+import CityDailyExplorer from '@/components/CityDailyExplorer';
+import CityDailyHistoryTable from '@/components/CityDailyHistoryTable';
 import { getSupportedCities, resolveCity, UnsupportedCityError } from '@/lib/cities';
-import { getDailyPollenRows } from '@/lib/pollen';
+import { getCompleteDailyPollenHistory, getLatestDailyPollenRow } from '@/lib/pollen';
 import { absoluteUrl, cityDisplayName, normalizeCitySlug } from '@/lib/site';
 
 type Props = {
   params: Promise<{ city: string }>;
-  searchParams?: Promise<Record<string, string | undefined>>;
 };
 
 export const revalidate = 3600; // cache city history for 1 hour
@@ -45,9 +45,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CityPage({ params, searchParams }: Props) {
+export default async function CityPage({ params }: Props) {
   const city = normalizeCitySlug((await params).city);
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   if (!city) notFound();
 
   try {
@@ -57,13 +56,12 @@ export default async function CityPage({ params, searchParams }: Props) {
     throw error;
   }
 
-  const dailyRows: DailySummary[] = await getDailyPollenRows(city);
-  const cities = (await getSupportedCities()).map(({ name, slug }) => ({ name, slug }));
-
-  const selected =
-    resolvedSearchParams?.date && dailyRows.some((row) => row.date === resolvedSearchParams.date)
-      ? resolvedSearchParams.date
-      : (dailyRows[0]?.date ?? null);
+  const [latestDaily, dailyRows, supportedCities] = await Promise.all([
+    getLatestDailyPollenRow(city),
+    getCompleteDailyPollenHistory(city),
+    getSupportedCities(),
+  ]);
+  const cities = supportedCities.map(({ name, slug }) => ({ name, slug }));
 
   const cityLabel = cityDisplayName(city);
   const cityUrl = absoluteUrl(`/city/${encodeURIComponent(city)}`);
@@ -125,8 +123,8 @@ export default async function CityPage({ params, searchParams }: Props) {
             {cityLabel} pollen count
           </h1>
           <p className="text-sm text-slate-500">
-            Daily averages and peaks across the last {dailyRows.length.toLocaleString('en-US')}{' '}
-            day(s).
+            Latest detail and daily averages and peaks across all{' '}
+            {dailyRows.length.toLocaleString('en-US')} captured day(s).
           </p>
         </div>
         <Link
@@ -151,13 +149,8 @@ export default async function CityPage({ params, searchParams }: Props) {
         dataset.
       </div>
 
-      <CityDailyExplorer
-        key={city}
-        city={city}
-        cities={cities}
-        summaries={dailyRows}
-        initialSelected={selected}
-      />
+      <CityDailyExplorer key={city} city={city} cities={cities} latestDaily={latestDaily} />
+      <CityDailyHistoryTable days={dailyRows} />
     </div>
   );
 }

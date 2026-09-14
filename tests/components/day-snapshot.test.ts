@@ -37,7 +37,7 @@ test('daily snapshot renders averages and peaks without hourly fields', () => {
     }),
   );
 
-  assert.match(html, /Daily summary/);
+  assert.match(html, /Latest daily detail/);
   assert.match(html, />Average</);
   assert.match(html, />Peak</);
   assert.match(html, />36</);
