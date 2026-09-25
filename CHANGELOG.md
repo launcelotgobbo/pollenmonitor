@@ -1,5 +1,12 @@
 # API Changelog
 
+## 2.3.1 — 2026-09-24
+
+### Fixed
+
+- On-demand forecast refreshes now release the scheduled-ingest quota reserve
+  after the daily Ambee ingestion has completed.
+
 ## 2.3.0 — 2026-09-13
 
 ### Added
