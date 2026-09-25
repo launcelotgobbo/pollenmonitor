@@ -47,7 +47,10 @@ export function connectTestClient(): Promise<Client> {
 }
 
 // The RLS migrations reference Supabase's client roles; plain Postgres needs
-// them to exist for CREATE POLICY ... TO <role> to parse.
+// them to exist for CREATE POLICY ... TO <role> to parse. Supabase also grants
+// those roles everything on new tables in public, which is what the RLS
+// migrations guard against, so the harness reproduces that. Default
+// privileges belong to the schema, so call this after resetSchema.
 export async function ensureSupabaseRoles(client: Client) {
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await client.query(
@@ -58,6 +61,9 @@ export async function ensureSupabaseRoles(client: Client) {
        END $$`,
     );
   }
+  await client.query(
+    'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role',
+  );
 }
 
 export async function resetSchema(client: Client) {
@@ -69,8 +75,8 @@ export async function resetSchema(client: Client) {
 export async function prepareDatabase() {
   const client = await connectTestClient();
   try {
-    await ensureSupabaseRoles(client);
     await resetSchema(client);
+    await ensureSupabaseRoles(client);
     await runMigrations(client, { dir: MIGRATIONS_DIR });
   } finally {
     await client.end();

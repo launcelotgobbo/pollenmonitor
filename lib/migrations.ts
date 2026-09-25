@@ -38,13 +38,30 @@ const MIGRATION_FILE = /^(\d{3,})_([A-Za-z0-9][\w-]*)\.sql$/;
 // Serialises concurrent runners (two deploys, or a human and CI) on one lock.
 const MIGRATION_LOCK_KEY = 7_218_311_042;
 
+// Supabase's default privileges hand anon/authenticated full access to every
+// new table in public over PostgREST. A client deleting a row here would make
+// the runner re-apply that migration, so the table is closed to those roles
+// the same way 007 closed the app tables. RLS is enabled but not forced: the
+// owner keeps reading it even without BYPASSRLS.
 export const SCHEMA_MIGRATIONS_SQL = `
   CREATE TABLE IF NOT EXISTS schema_migrations (
     version text PRIMARY KEY,
     name text NOT NULL,
     checksum text NOT NULL,
     applied_at timestamptz NOT NULL DEFAULT now()
-  )
+  );
+  ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
+  DO $$
+  DECLARE
+    blocked_role text;
+  BEGIN
+    FOR blocked_role IN
+      SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')
+    LOOP
+      EXECUTE format('REVOKE ALL PRIVILEGES ON schema_migrations FROM %I', blocked_role);
+    END LOOP;
+  END
+  $$;
 `;
 
 export function checksumSql(sql: string): string {

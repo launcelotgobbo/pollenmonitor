@@ -25,8 +25,8 @@ async function tempMigrationsDir(files: Record<string, string>) {
 test('repository migrations apply cleanly, are recorded, and are idempotent', { skip }, async () => {
   const client = await connectTestClient();
   try {
-    await ensureSupabaseRoles(client);
     await resetSchema(client);
+    await ensureSupabaseRoles(client);
 
     const files = await loadMigrations(MIGRATIONS_DIR);
     const first = await runMigrations(client, { dir: MIGRATIONS_DIR });
@@ -59,6 +59,23 @@ test('repository migrations apply cleanly, are recorded, and are idempotent', { 
     );
     const { rows: policies } = await client.query(`SELECT 1 FROM pg_policies WHERE schemaname = 'public'`);
     assert.equal(policies.length, 0, '007 removes the PostgREST policies');
+
+    // The harness grants anon everything on new tables, as Supabase does;
+    // 007 and the runner must both take that back.
+    const { rows: exposure } = await client.query<{ table: string; rls: boolean; anon_any: boolean }>(
+      `SELECT relname AS "table",
+              relrowsecurity AS rls,
+              has_any_column_privilege('anon', oid, 'SELECT')
+                OR has_table_privilege('anon', oid, 'INSERT, UPDATE, DELETE, TRUNCATE') AS anon_any
+       FROM pg_class
+       WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'
+       ORDER BY relname`,
+    );
+    assert.equal(exposure.length, tables.length);
+    for (const row of exposure) {
+      assert.equal(row.rls, true, `${row.table} has RLS enabled`);
+      assert.equal(row.anon_any, false, `anon has no privileges on ${row.table}`);
+    }
   } finally {
     await client.end();
   }
