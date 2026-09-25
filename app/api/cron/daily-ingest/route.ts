@@ -110,3 +110,6 @@ export async function GET(req: NextRequest) {
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+// A timeout mid-run would skip logIngest/logProviderUsage, leaving the
+// forecast quota reserve held for the rest of the day.
+export const maxDuration = 300;

@@ -16,7 +16,7 @@ async function main() {
   if (!process.env.POSTGRES_URL_NON_POOLING && !process.env.POSTGRES_URL) {
     throw new Error('Set POSTGRES_URL (or POSTGRES_URL_NON_POOLING)');
   }
-  const pool = new Pool(createPostgresPoolConfig());
+  const pool = new Pool(createPostgresPoolConfig(process.env, { statementTimeoutMs: 0 }));
   const migDir = path.join(root, 'migrations');
   const files = (await fs.readdir(migDir))
     .filter((f) => f.endsWith('.sql'))

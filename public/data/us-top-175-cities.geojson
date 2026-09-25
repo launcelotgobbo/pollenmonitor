@@ -229,7 +229,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Columbus",
+        "name": "Columbus, OH",
+        "slug": "columbus",
         "population": 905748,
         "wikidata": "http://www.wikidata.org/entity/Q16567"
       },
@@ -544,7 +545,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Kansas City",
+        "name": "Kansas City, MO",
+        "slug": "kansas-city",
         "population": 508090,
         "wikidata": "http://www.wikidata.org/entity/Q41819"
       },
@@ -679,21 +681,6 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Virginia Beach",
-        "population": 459470,
-        "wikidata": "http://www.wikidata.org/entity/Q49259"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -75.9779,
-          36.8506
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
         "name": "Miami",
         "population": 442241,
         "wikidata": "http://www.wikidata.org/entity/Q8652"
@@ -784,7 +771,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Arlington",
+        "name": "Arlington, TX",
+        "slug": "arlington",
         "population": 394266,
         "wikidata": "http://www.wikidata.org/entity/Q17943"
       },
@@ -799,7 +787,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Aurora",
+        "name": "Aurora, CO",
+        "slug": "aurora",
         "population": 386261,
         "wikidata": "http://www.wikidata.org/entity/Q49246"
       },
@@ -853,21 +842,6 @@
         "coordinates": [
           -81.694722222,
           41.499166666
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "Honolulu",
-        "population": 350964,
-        "wikidata": "http://www.wikidata.org/entity/Q18094"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -157.857222222,
-          21.304722222
         ]
       }
     },
@@ -1384,7 +1358,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Glendale",
+        "name": "Glendale, AZ",
+        "slug": "glendale",
         "population": 248325,
         "wikidata": "http://www.wikidata.org/entity/Q51682"
       },
@@ -1444,7 +1419,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Arlington",
+        "name": "Arlington, VA",
+        "slug": "arlington-va",
         "population": 238643,
         "wikidata": "http://www.wikidata.org/entity/Q49279759"
       },
@@ -1744,7 +1720,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Columbus",
+        "name": "Columbus, GA",
+        "slug": "columbus-ga",
         "population": 206922,
         "wikidata": "http://www.wikidata.org/entity/Q239870"
       },
@@ -1954,7 +1931,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Glendale",
+        "name": "Glendale, CA",
+        "slug": "glendale-ca",
         "population": 196543,
         "wikidata": "http://www.wikidata.org/entity/Q485716"
       },
@@ -2224,7 +2202,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Aurora",
+        "name": "Aurora, IL",
+        "slug": "aurora-il",
         "population": 180542,
         "wikidata": "http://www.wikidata.org/entity/Q22595"
       },
@@ -2434,7 +2413,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Springfield",
+        "name": "Springfield, MO",
+        "slug": "springfield",
         "population": 169176,
         "wikidata": "http://www.wikidata.org/entity/Q135615"
       },
@@ -2554,7 +2534,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Kansas City",
+        "name": "Kansas City, KS",
+        "slug": "kansas-city-ks",
         "population": 156607,
         "wikidata": "http://www.wikidata.org/entity/Q486472"
       },
@@ -2584,7 +2565,8 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "Springfield",
+        "name": "Springfield, MA",
+        "slug": "springfield-ma",
         "population": 155929,
         "wikidata": "http://www.wikidata.org/entity/Q49158"
       },

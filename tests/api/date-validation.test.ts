@@ -36,6 +36,9 @@ test('manual ingest validates date and partial range parameters', async () => {
     for (const url of [
       'http://localhost/api/ingest?date=2026-02-30',
       'http://localhost/api/ingest?from=2026-08-26T00:00:00Z',
+      'http://localhost/api/ingest?hours=abc',
+      'http://localhost/api/ingest?hours=0',
+      'http://localhost/api/ingest?hours=49',
     ]) {
       const response = await ingest(
         new NextRequest(url, {
@@ -43,9 +46,20 @@ test('manual ingest validates date and partial range parameters', async () => {
           headers: { 'x-ingest-token': 'test-ingest-token' },
         }),
       );
-      assert.equal(response.status, 400);
+      assert.equal(response.status, 400, url);
       assert.match((await response.json()).error, /Invalid parameter|Missing required parameter/);
     }
+
+    const future = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const farFuture = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+    const response = await ingest(
+      new NextRequest(`http://localhost/api/ingest?from=${future}&to=${farFuture}`, {
+        method: 'POST',
+        headers: { 'x-ingest-token': 'test-ingest-token' },
+      }),
+    );
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /not in the future/);
   } finally {
     if (previousToken === undefined) delete process.env.INGEST_TOKEN;
     else process.env.INGEST_TOKEN = previousToken;

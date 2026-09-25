@@ -51,6 +51,22 @@ function numeric(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+export class OpenWeatherSummaryError extends Error {
+  constructor(
+    readonly status: number,
+    body: string,
+  ) {
+    super(`OpenWeather daily summary failed (${status}): ${body}`);
+    this.name = 'OpenWeatherSummaryError';
+  }
+
+  // 401/403 mean the key or One Call subscription is the problem, so every
+  // other city in the run would fail the same way.
+  get affectsAllCities() {
+    return this.status === 401 || this.status === 403;
+  }
+}
+
 export async function fetchDailySummary(
   lat: number,
   lon: number,
@@ -62,8 +78,7 @@ export async function fetchDailySummary(
   onProviderCall?.();
   const res = await fetchWithRetry(url);
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenWeather daily summary failed (${res.status}): ${body}`);
+    throw new OpenWeatherSummaryError(res.status, await res.text());
   }
   const json = await res.json();
   const temperature = json?.temperature || {};
@@ -119,19 +134,38 @@ export async function fetchAirHistory(
   }));
 }
 
+export type OpenWeatherDailyResult = {
+  byDate: Record<string, DailyWeather>;
+  // First daily-summary failure, if any. AQI rows are still returned so a
+  // broken One Call subscription does not also drop the free air-quality data.
+  summaryError: OpenWeatherSummaryError | Error | null;
+};
+
 export async function openweatherDailyWithAqi(
   lat: number,
   lon: number,
   fromISO: string,
   toISO: string,
   onProviderCall?: () => void,
-): Promise<Record<string, DailyWeather>> {
+  { includeSummary = true }: { includeSummary?: boolean } = {},
+): Promise<OpenWeatherDailyResult> {
   const dates = utcDatesInWindow(fromISO, toISO);
-  const summaries = await Promise.all(
-    dates.map((date) => fetchDailySummary(lat, lon, date, onProviderCall)),
-  );
   const byDate: Record<string, DailyWeather> = {};
-  for (const summary of summaries) byDate[summary.date] = summary;
+  let summaryError: OpenWeatherSummaryError | Error | null = null;
+
+  if (includeSummary) {
+    const summaries = await Promise.allSettled(
+      dates.map((date) => fetchDailySummary(lat, lon, date, onProviderCall)),
+    );
+    for (const outcome of summaries) {
+      if (outcome.status === 'fulfilled') {
+        byDate[outcome.value.date] = outcome.value;
+      } else {
+        summaryError ??=
+          outcome.reason instanceof Error ? outcome.reason : new Error(String(outcome.reason));
+      }
+    }
+  }
 
   // Air history on the requested window; aggregate per day
   const air = await fetchAirHistory(lat, lon, fromISO, toISO, onProviderCall);
@@ -170,6 +204,6 @@ export async function openweatherDailyWithAqi(
   for (const [d, v] of Object.entries(byDate)) {
     if (requestedDates.has(d)) out[d] = v;
   }
-  return out;
+  return { byDate: out, summaryError };
 }
 

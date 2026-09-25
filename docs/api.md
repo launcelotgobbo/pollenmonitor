@@ -1,6 +1,6 @@
 # Pollen Monitor API
 
-Version 2.3.1 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
+Version 2.4.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
 
 The endpoints do not require authentication and send `Access-Control-Allow-Origin: *`
 so browser applications can read them cross-origin. Successful public data

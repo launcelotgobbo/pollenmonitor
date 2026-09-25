@@ -1,5 +1,26 @@
 # API Changelog
 
+## 2.4.0 — 2026-09-24
+
+### Added
+
+- Six cities that previously collided on a shared slug are now distinct:
+  `columbus-ga`, `kansas-city-ks`, `arlington-va`, `aurora-il`, `glendale-ca`,
+  and `springfield-ma`. The larger city of each pair keeps its original slug.
+
+### Changed
+
+- City names for the disambiguated pairs now include the state (for example
+  `Columbus, OH`).
+- Weather ingestion stores air-quality rows even when the OpenWeather daily
+  summary is unavailable, and records the summary failure instead of dropping
+  the day.
+
+### Removed
+
+- `honolulu` is no longer a supported city; the provider has never returned
+  pollen data for it.
+
 ## 2.3.1 — 2026-09-24
 
 ### Fixed
