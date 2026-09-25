@@ -152,6 +152,34 @@ test('fetchDailyTimeline sums rain and snow and accepts the hourly-style volume 
   assert.equal(result['2026-07-07'].precip_mm, 3.5);
 });
 
+test('fetchDailyTimeline rounds the integer-column fields that forecast days return fractional', async () => {
+  const { result } = await withStubbedFetch(
+    () => fetchDailyTimeline(39.74, -104.99, ['2026-07-07']),
+    () =>
+      new Response(
+        JSON.stringify({
+          timezone: 'America/Denver',
+          data: [
+            dailyRecord(localNoon(DAY1), {
+              pressure: 1015.52,
+              humidity: 62.5,
+              wind_deg: 253.7,
+              clouds: 44.49,
+              wind_speed: 3.27,
+            }),
+          ],
+        }),
+        { status: 200 },
+      ),
+  );
+  const day = result['2026-07-07'];
+  assert.equal(day.pressure_hpa, 1016);
+  assert.equal(day.humidity, 63);
+  assert.equal(day.wind_deg, 254);
+  assert.equal(day.clouds_pct, 44);
+  assert.equal(day.wind_speed_ms, 3.27, 'numeric columns keep their precision');
+});
+
 test('fetchDailyTimeline follows next pages only until the requested dates are covered', async () => {
   const pageOneDays = Array.from({ length: 10 }, (_, i) => dailyRecord(localNoon(DAY1) + i * 86_400));
   const pageTwoDays = Array.from({ length: 10 }, (_, i) =>

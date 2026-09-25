@@ -79,6 +79,11 @@ function stubProviders(
           dt: start + i * 86_400 + 18 * 3600, // local noon in Denver (UTC-6)
           temp: { min: 10 + i, max: 20 + i, day: 15 + i },
           humidity: 40,
+          // The current and forecast days come back fractional from OpenWeather;
+          // the integer columns must still accept them.
+          pressure: 1015.52,
+          wind_deg: 253.7,
+          clouds: 44.49,
           wind_speed: 3,
           uvi: 6,
           weather: [{ main: 'Clear', description: 'clear sky' }],
@@ -197,12 +202,26 @@ test('daily ingest writes pollen, weather, logs, and usage, and health turns gre
     assert.ok((latest.peak_tree ?? 0) >= (latest.tree ?? 0));
     assert.equal(latest.species?.Tree?.Oak, latest.tree);
 
-    const { rows: weather } = await query<{ city_slug: string; date: string; temp_max_c: string | null; aqi: number | null; uvi: string | null }>(
-      `SELECT city_slug, date::text, temp_max_c::text, aqi, uvi::text FROM weather_daily ORDER BY city_slug, date`,
+    const { rows: weather } = await query<{
+      city_slug: string;
+      date: string;
+      temp_max_c: string | null;
+      aqi: number | null;
+      uvi: string | null;
+      pressure_hpa: number | null;
+      wind_deg: number | null;
+      clouds_pct: number | null;
+    }>(
+      `SELECT city_slug, date::text, temp_max_c::text, aqi, uvi::text, pressure_hpa, wind_deg, clouds_pct
+       FROM weather_daily ORDER BY city_slug, date`,
     );
     const denverWeather = weather.filter((w) => w.city_slug === 'denver');
     assert.ok(denverWeather.length >= 2);
     assert.ok(denverWeather.every((w) => w.temp_max_c !== null && w.aqi === 2 && w.uvi === '6'));
+    assert.ok(
+      denverWeather.every((w) => w.pressure_hpa === 1016 && w.wind_deg === 254 && w.clouds_pct === 44),
+      'fractional provider values are rounded into the integer columns',
+    );
 
     const { rows: logs } = await query<{ job: string; status: string; details: any }>(
       `SELECT job, status, details FROM ingest_logs`,

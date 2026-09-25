@@ -58,6 +58,14 @@ function numeric(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+// Historical timeline days carry whole-number pressure/humidity/wind/cloud
+// values, but the current and forecast days are averaged from hourly data and
+// arrive fractional (e.g. pressure 1015.52). Those columns are integers.
+function integer(value: unknown): number | null {
+  const parsed = numeric(value);
+  return parsed === null ? null : Math.round(parsed);
+}
+
 export class OpenWeatherSummaryError extends Error {
   constructor(
     readonly status: number,
@@ -103,11 +111,11 @@ function mapTimelineRecord(record: any, timezone: string | null): DailyWeather |
     temp_max_c: numeric(temp.max),
     temp_day_c: numeric(temp.day),
     feels_like_day_c: numeric(feelsLike.day),
-    humidity: numeric(record?.humidity),
-    pressure_hpa: numeric(record?.pressure),
+    humidity: integer(record?.humidity),
+    pressure_hpa: integer(record?.pressure),
     wind_speed_ms: numeric(record?.wind_speed),
-    wind_deg: numeric(record?.wind_deg),
-    clouds_pct: numeric(record?.clouds),
+    wind_deg: integer(record?.wind_deg),
+    clouds_pct: integer(record?.clouds),
     precip_mm: rain === null && snow === null ? null : (rain ?? 0) + (snow ?? 0),
     uvi: numeric(record?.uvi),
     weather_main: typeof weather?.main === 'string' ? weather.main : null,
