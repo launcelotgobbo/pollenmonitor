@@ -24,11 +24,14 @@ async function withProvider<T>(
   let airCalls = 0;
   globalThis.fetch = (async (input: any) => {
     const url = String(input);
-    if (url.includes('/onecall/day_summary')) {
+    if (url.includes('/onecall/timeline/1day')) {
       summaryCalls += 1;
       if (summaryStatus !== 200) return new Response('nope', { status: summaryStatus });
       return new Response(
-        JSON.stringify({ date: '2026-07-07', temperature: { min: 10, max: 20, afternoon: 18 } }),
+        JSON.stringify({
+          timezone: 'America/Denver',
+          data: [{ dt: Date.UTC(2026, 6, 7, 18) / 1000, temp: { min: 10, max: 20, day: 18 } }],
+        }),
         { status: 200 },
       );
     }

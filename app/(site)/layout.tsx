@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import DataFreshness from '@/components/DataFreshness';
 
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
@@ -8,7 +9,10 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
         <Link href="/" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
           Pollen Monitor
         </Link>
-        <span className="text-xs font-medium text-slate-500 sm:text-sm">Daily pollen insights</span>
+        <div className="flex items-center gap-3">
+          <DataFreshness />
+          <span className="text-xs font-medium text-slate-500 sm:text-sm">Daily pollen insights</span>
+        </div>
       </header>
       <main className="flex-1">{children}</main>
     </div>

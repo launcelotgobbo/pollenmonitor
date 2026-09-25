@@ -45,8 +45,11 @@ export async function ingestHourlyForCities({
 
   const cityResults = await mapWithConcurrency(cities, ingestConcurrency(), async (city) => {
     try {
-      ambeeCalls += 1;
-      const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO);
+      const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO, {
+        onAttempt: () => {
+          ambeeCalls += 1;
+        },
+      });
       if (!dryRun) {
         await upsertPollenHourlyBatch(
           hours.map((hour) => toStoredPollenRow(city.slug, hour)),

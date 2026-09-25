@@ -82,3 +82,69 @@ test('fetchWithRetry recovers from a transient network error', async () => {
   assert.equal(result.status, 200);
   assert.equal(calls, 2);
 });
+
+test('fetchWithRetry reports every attempt, including retries', async () => {
+  let attempts = 0;
+  const { calls } = await withStubbedFetch(
+    [new Response('boom', { status: 500 }), new Response('ok', { status: 200 })],
+    () => fetchWithRetry('https://example.com', undefined, { ...fastRetry, onAttempt: () => attempts++ }),
+  );
+  assert.equal(calls, 2);
+  assert.equal(attempts, 2);
+});
+
+function hangingFetch(): { fetch: typeof fetch; signals: AbortSignal[] } {
+  const signals: AbortSignal[] = [];
+  const stub = ((_input: any, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal;
+      if (!signal) return;
+      signals.push(signal);
+      // AbortSignal.timeout uses an unref'd timer; a real socket would keep the
+      // process alive, so stand in for it here.
+      const keepAlive = setTimeout(() => {}, 10_000);
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(keepAlive);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
+    })) as typeof fetch;
+  return { fetch: stub, signals };
+}
+
+test('fetchWithRetry aborts a hung request after timeoutMs and retries it', async () => {
+  const originalFetch = globalThis.fetch;
+  const { fetch: stub, signals } = hangingFetch();
+  globalThis.fetch = stub;
+  try {
+    await assert.rejects(
+      fetchWithRetry('https://example.com', undefined, { ...fastRetry, retries: 1, timeoutMs: 20 }),
+      (error: any) => error?.name === 'TimeoutError',
+    );
+    assert.equal(signals.length, 2, 'the timed-out attempt is retried once');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('fetchWithRetry does not retry when the caller aborts', async () => {
+  const originalFetch = globalThis.fetch;
+  const { fetch: stub, signals } = hangingFetch();
+  globalThis.fetch = stub;
+  const controller = new AbortController();
+  try {
+    const pending = fetchWithRetry(
+      'https://example.com',
+      { signal: controller.signal },
+      { ...fastRetry, timeoutMs: 1000 },
+    );
+    controller.abort(new Error('caller gave up'));
+    await assert.rejects(pending, /caller gave up/);
+    assert.equal(signals.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

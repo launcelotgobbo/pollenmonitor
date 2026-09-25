@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import DataFreshness from '@/components/DataFreshness';
 import MapCanvas from '@/components/Map/MapCanvas';
 import Legend from '@/components/Map/Legend';
 import type { PollenType } from '@/components/Map/pollenLayer';
@@ -80,6 +81,9 @@ export default function MapView() {
           >
             Data API
           </Link>
+        </div>
+        <div className="pointer-events-auto mt-2 w-fit rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 shadow-xl backdrop-blur-md empty:hidden">
+          <DataFreshness theme="dark" />
         </div>
         {error ? (
           <p className="pointer-events-auto mt-2 w-fit rounded-full bg-rose-950/90 px-3 py-1 text-xs text-rose-100">

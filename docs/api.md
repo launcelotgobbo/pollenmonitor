@@ -377,7 +377,7 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/health
 }
 ```
 
-`summaryCoverage` is the share of the latest weather day that has One Call summary fields (temperature, wind, and so on); air quality is present regardless.
+`summaryCoverage` is the share of the latest weather day that has One Call daily fields (temperature, wind, and so on); air quality is present regardless.
 
 ---
 
