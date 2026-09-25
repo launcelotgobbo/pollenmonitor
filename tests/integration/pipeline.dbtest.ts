@@ -43,12 +43,13 @@ type ProviderOptions = {
   ambeeStatus?: number;
   ambeeStatusFor?: (lat: string | null) => number;
   timelineStatus?: number;
+  airStatus?: number;
 };
 
 // Deterministic provider payloads: pollen counts grow with the hour index so
 // averages and peaks are predictable, and Denver's tree count is offset by 100.
 function stubProviders(
-  { ambeeStatus = 200, ambeeStatusFor, timelineStatus = 200 }: ProviderOptions = {},
+  { ambeeStatus = 200, ambeeStatusFor, timelineStatus = 200, airStatus = 200 }: ProviderOptions = {},
 ) {
   const calls = { ambee: 0, timeline: 0, air: 0 };
   const originalFetch = globalThis.fetch;
@@ -92,6 +93,7 @@ function stubProviders(
     }
     if (url.pathname === '/data/2.5/air_pollution/history') {
       calls.air += 1;
+      if (airStatus !== 200) return new Response('{"cod":"500"}', { status: airStatus });
       const start = Number(url.searchParams.get('start'));
       const end = Number(url.searchParams.get('end'));
       const list = [];
@@ -319,6 +321,83 @@ test('a failed daily summary refresh downgrades an otherwise clean run to partia
   } finally {
     providers.restore();
     await query(`ALTER TABLE pollen_daily_missing RENAME TO pollen_daily`);
+  }
+});
+
+test('weather-only runs skip Ambee and the daily summary and log only OpenWeather usage', { skip }, async () => {
+  const providers = stubProviders();
+  try {
+    const { fromISO, toISO } = ingestWindow();
+    const { result, httpStatus } = await withProviderEnv(() =>
+      runIngestJob({ job: 'manual-ingest', logLabel: '[test]', jobId: 'job-5', cities, fromISO, toISO, includePollen: false }),
+    );
+
+    assert.equal(httpStatus, 200);
+    assert.equal(result.status, 'success');
+    assert.equal(result.includePollen, false);
+    assert.equal(result.ambeeCalls, 0);
+    assert.equal(result.wrote, 0);
+    assert.deepEqual(result.cityResults, []);
+    assert.equal(result.pollenDaily, null);
+    assert.equal(result.weather.summary.wrote, 2);
+    assert.deepEqual(providers.calls, { ambee: 0, timeline: 2, air: 2 });
+
+    const { rows } = await query<{ pollen: string; daily: string; weather: string }>(
+      `SELECT (SELECT count(*) FROM pollen_readings_hourly)::text AS pollen,
+              (SELECT count(*) FROM pollen_daily)::text AS daily,
+              (SELECT count(*) FROM weather_daily WHERE temp_max_c IS NOT NULL)::text AS weather`,
+    );
+    assert.equal(rows[0].pollen, '0');
+    assert.equal(rows[0].daily, '0');
+    assert.ok(Number(rows[0].weather) >= 4, 'two cities across at least two UTC days');
+
+    const { rows: usage } = await query<{ job: string; ambee_calls: number }>(
+      `SELECT job, ambee_calls FROM ambee_usage_logs ORDER BY job`,
+    );
+    assert.deepEqual(usage, [{ job: 'manual-ingest-openweather', ambee_calls: 4 }]);
+    const { rows: logs } = await query<{ status: string; details: any }>(`SELECT status, details FROM ingest_logs`);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].status, 'success');
+    assert.equal(logs[0].details.includePollen, false);
+  } finally {
+    providers.restore();
+  }
+});
+
+test('weather-only outcomes follow the weather pass: all failed is a 500, summary-less is a 207', { skip }, async () => {
+  const { fromISO, toISO } = ingestWindow();
+
+  const airDown = stubProviders({ airStatus: 500 });
+  try {
+    const { result, httpStatus } = await withProviderEnv(() =>
+      runIngestJob({ job: 'manual-ingest', logLabel: '[test]', jobId: 'job-6', cities, fromISO, toISO, includePollen: false }),
+    );
+    assert.equal(httpStatus, 500);
+    assert.equal(result.status, 'failure');
+    assert.equal(result.ok, false, 'ok follows the weather pass when pollen is excluded');
+    assert.equal(result.weather.summary.failed, 2);
+    const { rows } = await query<{ n: string }>(`SELECT count(*)::text AS n FROM weather_daily`);
+    assert.equal(rows[0].n, '0');
+  } finally {
+    airDown.restore();
+  }
+
+  const summaryDown = stubProviders({ timelineStatus: 401 });
+  try {
+    const { result, httpStatus } = await withProviderEnv(() =>
+      runIngestJob({ job: 'manual-ingest', logLabel: '[test]', jobId: 'job-7', cities, fromISO, toISO, includePollen: false }),
+    );
+    assert.equal(httpStatus, 207);
+    assert.equal(result.status, 'partial');
+    assert.equal(result.weather.summary.failed, 0);
+    assert.equal(result.weather.summary.summaryFailures, 2);
+    const { rows } = await query<{ n: string; with_summary: string }>(
+      `SELECT count(*)::text AS n, count(*) FILTER (WHERE temp_max_c IS NOT NULL)::text AS with_summary FROM weather_daily`,
+    );
+    assert.ok(Number(rows[0].n) >= 4, 'AQI-only rows still land');
+    assert.equal(rows[0].with_summary, '0');
+  } finally {
+    summaryDown.restore();
   }
 });
 

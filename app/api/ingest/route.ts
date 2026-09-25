@@ -23,6 +23,11 @@ import { ambeeDailyQuota } from '@/lib/provider-quota';
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 // Ambee Pollen API v3 history only covers the past 48 hours
 const AMBEE_HISTORY_HOURS = 48;
+// Weather-only runs can reach further back: the One Call timeline is paged
+// ten days at a time (fetchDailyTimeline follows up to four pages) and the
+// Air Pollution history API has no practical limit. Thirty days stays inside
+// the timeline paging and the route's maxDuration for a full city catalog.
+const WEATHER_HISTORY_HOURS = 30 * 24;
 
 function requestedWindow(searchParams: URLSearchParams, hoursBack: number) {
   const explicitFrom = searchParams.get('from');
@@ -58,16 +63,27 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const requestedCity = searchParams.get('city');
   const dryRun = searchParams.get('dry') === 'true';
+  const includePollen = searchParams.get('includePollen') !== 'false';
   const includeWeather = searchParams.get('includeWeather') !== 'false';
+
+  // Ambee's history limit bounds any run that fetches pollen; weather-only
+  // runs are bounded by the One Call timeline instead.
+  const historyHours = includePollen ? AMBEE_HISTORY_HOURS : WEATHER_HISTORY_HOURS;
+  const historyLabel = includePollen ? 'Ambee v3 history limit' : 'weather history limit';
 
   let toISO: string;
   let fromISO: string;
 
   try {
+    if (!includePollen && !includeWeather) {
+      throw new ApiValidationError(
+        "Invalid parameters: 'includePollen' and 'includeWeather' cannot both be false",
+      );
+    }
     const hoursBack = parseIntegerParameter(searchParams.get('hours'), 'hours', {
       defaultValue: AMBEE_HISTORY_HOURS,
       min: 1,
-      max: AMBEE_HISTORY_HOURS,
+      max: historyHours,
     });
     ({ fromISO, toISO } = requestedWindow(searchParams, hoursBack));
   } catch (error) {
@@ -90,11 +106,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const earliest = new Date(now - AMBEE_HISTORY_HOURS * 3600 * 1000);
+  const earliest = new Date(now - historyHours * 3600 * 1000);
   if (toDate <= earliest) {
     return new Response(
       JSON.stringify({
-        error: `Requested window is entirely older than the Ambee v3 history limit (past ${AMBEE_HISTORY_HOURS} hours)`,
+        error: `Requested window is entirely older than the ${historyLabel} (past ${historyHours} hours)`,
         earliestAvailable: formatUtcSqlTimestamp(earliest),
       }),
       { status: 400 },
@@ -109,13 +125,13 @@ export async function POST(req: NextRequest) {
   const jobId = randomUUID();
 
   if (windowClamped) {
-    console.warn('[ingest manual] window clamped to Ambee history limit', {
+    console.warn(`[ingest manual] window clamped to ${historyLabel}`, {
       level: 'warn',
       job: 'manual-ingest',
       jobId,
       requestedFrom: formatUtcSqlTimestamp(fromDate),
       clampedFrom: fromISO,
-      historyHours: AMBEE_HISTORY_HOURS,
+      historyHours,
     });
   }
   let allCities: City[];
@@ -167,6 +183,8 @@ export async function POST(req: NextRequest) {
     cityCount: cities.length,
     window: { from: fromISO, to: toISO },
     dryRun,
+    includePollen,
+    includeWeather,
     ambeeQuota: ambeeDailyQuota(),
   });
 
@@ -178,6 +196,7 @@ export async function POST(req: NextRequest) {
     fromISO,
     toISO,
     dryRun,
+    includePollen,
     includeWeather,
   });
   return Response.json({ ...result, windowClamped }, { status: httpStatus });
