@@ -60,6 +60,19 @@ test('Postgres config accepts env overrides and lets migrations disable the stat
   assert.equal('statement_timeout' in migration, false);
 });
 
+test('Postgres config turns TLS off only for an explicit sslmode=disable', () => {
+  const plain = createPostgresPoolConfig({
+    POSTGRES_URL: 'postgres://postgres:postgres@localhost:5432/db?sslmode=disable',
+  });
+  assert.equal(plain.ssl, false);
+  assert.equal(plain.connectionString, 'postgres://postgres:postgres@localhost:5432/db');
+
+  const lookalike = createPostgresPoolConfig({
+    POSTGRES_URL: 'postgres://localhost:5432/db?sslmode=disabled-not-really',
+  });
+  assert.deepEqual(lookalike.ssl, { rejectUnauthorized: true });
+});
+
 test('Postgres config supports an explicit CA and opt-out', () => {
   assert.deepEqual(
     createPostgresPoolConfig({

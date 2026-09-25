@@ -29,6 +29,12 @@ function withoutSslMode(connectionString: string) {
     .replace(/[?&]$/, '');
 }
 
+// Only an explicit sslmode=disable turns TLS off (local Docker/CI Postgres);
+// every other value still gets verified TLS below.
+function sslDisabled(connectionString: string) {
+  return /[?&]sslmode=disable(?:&|$)/i.test(connectionString);
+}
+
 function positiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -58,14 +64,18 @@ export function createPostgresPoolConfig(
 
   return {
     connectionString,
-    ssl: skipVerify
-      ? { rejectUnauthorized: false }
-      : ca
-        ? { ca, rejectUnauthorized: true }
-        : { rejectUnauthorized: true },
+    ssl: sslDisabled(rawConnectionString)
+      ? false
+      : skipVerify
+        ? { rejectUnauthorized: false }
+        : ca
+          ? { ca, rejectUnauthorized: true }
+          : { rejectUnauthorized: true },
     max: positiveInteger(env.POSTGRES_POOL_MAX, DEFAULT_POOL_MAX),
     connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
     idleTimeoutMillis: IDLE_TIMEOUT_MS,
+    // Idle clients must not pin scripts and test runners open.
+    allowExitOnIdle: true,
     ...(statementTimeout > 0 ? { statement_timeout: statementTimeout } : {}),
   };
 }
