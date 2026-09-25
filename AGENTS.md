@@ -59,6 +59,7 @@
 - Manual ingest (hourly Ambee):
   - Local: `curl -X POST -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest"`
   - Options: `?city=slug` to target one city, `?hours=48` to adjust window, `?dry=true` for a dry run.
+  - Scope: `?includeWeather=false` skips OpenWeather; `?includePollen=false` skips Ambee (no quota spent) and lifts the window cap from 48 h to 720 h (30 days, e.g. `?includePollen=false&hours=720`). Both false is a 400. For a 30-day catalog-wide weather backfill, split by `from`/`to` or `city` to stay inside the route's 300 s budget.
 - Cron (Vercel): daily ingest at 1:00 AM `America/Los_Angeles` (DST-aware). `vercel.json` invokes at 08:00 and 09:00 UTC; the route skips whichever invocation is not 1:00 AM Pacific.
   - Auth: set `CRON_SECRET` in every environment so Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual triggers use a header, never a query string: `curl -H "x-ingest-token: $INGEST_TOKEN" ".../api/cron/daily-ingest"`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration. Stack traces stay in function logs and are not persisted.

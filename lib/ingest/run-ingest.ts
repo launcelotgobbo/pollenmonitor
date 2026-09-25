@@ -1,6 +1,10 @@
 import { logIngest, logProviderUsage } from '@/lib/db';
 import type { City } from '@/lib/ingest/cities';
-import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
+import {
+  ingestHourlyForCities,
+  type CityIngestResult,
+  type HourlyIngestSummary,
+} from '@/lib/ingest/hourly-ingest';
 import { ingestWeatherForCities, type WeatherIngestSummary, type CityWeatherResult } from '@/lib/ingest/weather-daily';
 import { refreshPollenDaily } from '@/lib/pollen-daily';
 import { ambeeDailyQuota, openweatherDailyQuota } from '@/lib/provider-quota';
@@ -22,6 +26,7 @@ export type IngestJobOptions = {
   fromISO: string;
   toISO: string;
   dryRun?: boolean;
+  includePollen?: boolean;
   includeWeather?: boolean;
 };
 
@@ -33,37 +38,57 @@ export async function runIngestJob({
   fromISO,
   toISO,
   dryRun = false,
+  includePollen = true,
   includeWeather = true,
 }: IngestJobOptions): Promise<{ result: Record<string, any>; httpStatus: number }> {
+  if (!includePollen && !includeWeather) {
+    throw new Error('runIngestJob needs at least one of includePollen or includeWeather');
+  }
   const ambeeQuota = ambeeDailyQuota();
   const openweatherQuota = openweatherDailyQuota();
 
-  const { summary, cityResults } = await ingestHourlyForCities({
-    cities,
-    fromISO,
-    toISO,
-    dryRun,
-    onCityComplete: (outcome) => {
-      if (outcome.ok) {
-        console.log(`${logLabel} city success`, {
-          level: 'info',
-          job,
-          jobId,
-          city: outcome.city,
-          hoursFetched: outcome.hoursFetched,
-        });
-      } else {
-        console.error(`${logLabel} city failure`, {
-          level: 'error',
-          job,
-          jobId,
-          city: outcome.city,
-          message: outcome.error,
-          stack: outcome.stack,
-        });
-      }
-    },
-  });
+  // A weather-only run reports an empty pollen pass so the result keeps one
+  // shape for every caller that reads ingest_logs.
+  let summary: HourlyIngestSummary = {
+    ok: true,
+    from: fromISO,
+    to: toISO,
+    cities: cities.length,
+    wrote: 0,
+    failed: 0,
+    totalRecordsStored: 0,
+    ms: 0,
+    ambeeCalls: 0,
+  };
+  let cityResults: CityIngestResult[] = [];
+  if (includePollen) {
+    ({ summary, cityResults } = await ingestHourlyForCities({
+      cities,
+      fromISO,
+      toISO,
+      dryRun,
+      onCityComplete: (outcome) => {
+        if (outcome.ok) {
+          console.log(`${logLabel} city success`, {
+            level: 'info',
+            job,
+            jobId,
+            city: outcome.city,
+            hoursFetched: outcome.hoursFetched,
+          });
+        } else {
+          console.error(`${logLabel} city failure`, {
+            level: 'error',
+            job,
+            jobId,
+            city: outcome.city,
+            message: outcome.error,
+            stack: outcome.stack,
+          });
+        }
+      },
+    }));
+  }
 
   // Daily readers serve pollen_daily, so the days this run wrote must be
   // recomputed before the run can count as a success.
@@ -135,18 +160,23 @@ export async function runIngestJob({
 
   const weatherOk = weatherSummary?.ok ?? true;
   const pollenDailyOk = pollenDaily?.ok ?? true;
+  const pollenAllFailed = !includePollen || summary.failed === cities.length;
   const weatherAllFailed = !includeWeather || (weatherSummary ? weatherSummary.failed === cities.length : true);
   const status =
     summary.ok && weatherOk && pollenDailyOk
       ? 'success'
-      : summary.failed === cities.length && weatherAllFailed
+      : pollenAllFailed && weatherAllFailed
         ? 'failure'
         : 'partial';
 
   const result = {
     jobId,
     dryRun,
+    includePollen,
+    includeWeather,
     ...summary,
+    // `ok` has always tracked the pollen pass; without one it tracks weather.
+    ok: includePollen ? summary.ok : weatherOk,
     totalDaysStored: summary.totalRecordsStored,
     // Stacks stay in the per-city console logs above; persisting them would put
     // server file paths into ingest_logs rows.
@@ -204,7 +234,10 @@ export async function runIngestJob({
     });
   }
 
-  const httpStatus =
-    summary.ok && pollenDailyOk ? 200 : summary.failed === cities.length ? 500 : 207;
+  // With pollen in the run the HTTP status follows the pollen pass, as before;
+  // a weather-only run has nothing else to report on.
+  const httpStatus = includePollen
+    ? summary.ok && pollenDailyOk ? 200 : summary.failed === cities.length ? 500 : 207
+    : weatherOk ? 200 : weatherAllFailed ? 500 : 207;
   return { result, httpStatus };
 }
