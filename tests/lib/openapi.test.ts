@@ -25,19 +25,16 @@ function resolveLocalRef(root: unknown, ref: string): unknown {
 
 test('OpenAPI document exposes every public data endpoint', () => {
   assert.equal(OPENAPI_DOCUMENT.openapi, '3.1.0');
-  assert.deepEqual(
-    Object.keys(OPENAPI_DOCUMENT.paths).sort(),
-    [
-      '/api/available-dates',
-      '/api/cities',
-      '/api/forecast',
-      '/api/latest-date',
-      '/api/map-data',
-      '/api/pollen',
-      '/api/pollen-range',
-      '/api/weather',
-    ],
-  );
+  assert.deepEqual(Object.keys(OPENAPI_DOCUMENT.paths).sort(), [
+    '/api/available-dates',
+    '/api/cities',
+    '/api/forecast',
+    '/api/latest-date',
+    '/api/map-data',
+    '/api/pollen',
+    '/api/pollen-range',
+    '/api/weather',
+  ]);
 });
 
 test('OpenAPI document has unique operation IDs and valid local references', () => {
@@ -48,7 +45,11 @@ test('OpenAPI document has unique operation IDs and valid local references', () 
     if (!value || typeof value !== 'object' || !('$ref' in value)) return;
     const ref = (value as { $ref: string }).$ref;
     assert.ok(ref.startsWith('#/'), `Only local OpenAPI references are expected: ${ref}`);
-    assert.notEqual(resolveLocalRef(OPENAPI_DOCUMENT, ref), undefined, `Unresolved OpenAPI reference: ${ref}`);
+    assert.notEqual(
+      resolveLocalRef(OPENAPI_DOCUMENT, ref),
+      undefined,
+      `Unresolved OpenAPI reference: ${ref}`,
+    );
   });
 });
 
@@ -70,9 +71,9 @@ test('OpenAPI documents runtime error and map media-type contracts', () => {
 
 test('OpenAPI documents strict aggregation and one pollen-range row shape', () => {
   const operation = OPENAPI_DOCUMENT.paths['/api/pollen-range'].get;
-  const aggregate = operation.parameters.find((parameter: any) => parameter.name === 'aggregate') as
-    | { schema: { enum: readonly string[] } }
-    | undefined;
+  const aggregate = operation.parameters.find(
+    (parameter: any) => parameter.name === 'aggregate',
+  ) as { schema: { enum: readonly string[] } } | undefined;
   assert.ok(aggregate);
   assert.deepEqual(aggregate.schema.enum, ['none', 'day']);
   assert.equal(
@@ -92,26 +93,30 @@ test('OpenAPI documents strict aggregation and one pollen-range row shape', () =
 });
 
 test('OpenAPI advertises MCP and the normalized daily pollen contract', () => {
-  assert.equal(API_VERSION, '2.2.2');
+  assert.equal(API_VERSION, '2.3.1');
   assert.equal(OPENAPI_DOCUMENT.info.version, API_VERSION);
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].url, 'https://pollenmonitor.dev/mcp');
   assert.equal(OPENAPI_DOCUMENT['x-mcp-server'].transport, 'streamable-http');
   assert.ok(OPENAPI_DOCUMENT.paths['/api/pollen'].get.responses['404']);
-  assert.deepEqual(
-    OPENAPI_DOCUMENT.components.schemas.DailyPollen.required,
-    [
-      'date',
-      'tree',
-      'grass',
-      'weed',
-      'total',
-      'species',
-      'risk_tree',
-      'risk_grass',
-      'risk_weed',
-      'timezone',
-    ],
-  );
+  assert.deepEqual(OPENAPI_DOCUMENT.components.schemas.DailyPollen.required, [
+    'date',
+    'tree',
+    'grass',
+    'weed',
+    'total',
+    'peak_tree',
+    'peak_grass',
+    'peak_weed',
+    'peak_total',
+    'species',
+    'risk_tree',
+    'risk_grass',
+    'risk_weed',
+    'peak_risk_tree',
+    'peak_risk_grass',
+    'peak_risk_weed',
+    'timezone',
+  ]);
 });
 
 test('OpenAPI gives agents complete response examples and code samples', () => {
@@ -136,8 +141,8 @@ test('OpenAPI gives agents complete response examples and code samples', () => {
       .invalidParameter,
   );
   assert.ok(
-    OPENAPI_DOCUMENT.components.responses.UnsupportedCity.content['application/json']
-      .examples.unsupportedCity,
+    OPENAPI_DOCUMENT.components.responses.UnsupportedCity.content['application/json'].examples
+      .unsupportedCity,
   );
 });
 
@@ -149,20 +154,24 @@ test('OpenAPI reflects the exact discovery, forecast, and map shapes', () => {
   );
   assert.ok(OPENAPI_DOCUMENT.components.schemas.ForecastPollen.required.includes('tz'));
   assert.equal(
-    OPENAPI_DOCUMENT.paths['/api/forecast'].get.responses['200'].content[
-      'application/json'
-    ].examples.staleFallback.value.stale,
+    OPENAPI_DOCUMENT.paths['/api/forecast'].get.responses['200'].content['application/json']
+      .examples.staleFallback.value.stale,
     true,
   );
   const mapProperties =
-    OPENAPI_DOCUMENT.components.schemas.MapFeatureCollection.properties.features.items
-      .properties.properties;
+    OPENAPI_DOCUMENT.components.schemas.MapFeatureCollection.properties.features.items.properties
+      .properties;
   assert.ok(mapProperties.required.includes('max_weed'));
   assert.equal(mapProperties.properties.max_weed.type, 'number');
 });
 
 test('OpenAPI documents the shared unsupported-city contract', () => {
-  for (const path of ['/api/pollen', '/api/pollen-range', '/api/forecast', '/api/weather'] as const) {
+  for (const path of [
+    '/api/pollen',
+    '/api/pollen-range',
+    '/api/forecast',
+    '/api/weather',
+  ] as const) {
     assert.equal(
       OPENAPI_DOCUMENT.paths[path].get.responses['404'].$ref,
       '#/components/responses/UnsupportedCity',
@@ -174,13 +183,7 @@ test('OpenAPI documents the shared unsupported-city contract', () => {
     '#/components/schemas/UnsupportedCityError',
   );
   const schema = OPENAPI_DOCUMENT.components.schemas.UnsupportedCityError;
-  assert.deepEqual(schema.required, [
-    'error',
-    'code',
-    'city',
-    'supportedCities',
-    'mcpTool',
-  ]);
+  assert.deepEqual(schema.required, ['error', 'code', 'city', 'supportedCities', 'mcpTool']);
   assert.deepEqual(schema.properties.code.enum, ['UNSUPPORTED_CITY']);
   assert.equal(schema.properties.supportedCities.const, '/api/cities');
   assert.equal(schema.properties.mcpTool.const, 'list_cities');

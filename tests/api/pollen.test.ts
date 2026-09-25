@@ -17,16 +17,14 @@ test('city discovery and pollen validation use the same supported city source', 
   assert.ok(body.cities.some((city: any) => city.slug === 'seattle'));
   assert.deepEqual(
     body.cities.map((city: any) => city.name),
-    body.cities.map((city: any) => city.name).sort((a: string, b: string) =>
-      a.localeCompare(b, 'en', { sensitivity: 'base' }),
-    ),
+    body.cities
+      .map((city: any) => city.name)
+      .sort((a: string, b: string) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
   );
 });
 
 test('pollen API rejects unsupported cities with discovery guidance', async () => {
-  const response = await GET(
-    new NextRequest('http://localhost/api/pollen?city=atlantis'),
-  );
+  const response = await GET(new NextRequest('http://localhost/api/pollen?city=atlantis'));
   const body = await response.json();
 
   assert.equal(response.status, 404);
@@ -58,8 +56,13 @@ test('daily pollen rows use the canonical measurement names', () => {
       grass: 5,
       weed: 2,
       total: 27,
+      peak_tree: 100,
+      peak_grass: 8,
+      peak_weed: 6,
+      peak_total: 45,
       timezone: 'America/Denver',
       species: { Weed: { Ragweed: 2 } },
+      peak_species: { Tree: { Alder: 70, Elm: 40 } },
     },
   ]);
 
@@ -69,13 +72,23 @@ test('daily pollen rows use the canonical measurement names', () => {
     'grass',
     'weed',
     'total',
+    'peak_tree',
+    'peak_grass',
+    'peak_weed',
+    'peak_total',
     'timezone',
     'species',
     'risk_tree',
     'risk_grass',
     'risk_weed',
+    'peak_risk_tree',
+    'peak_risk_grass',
+    'peak_risk_weed',
   ]);
   assert.equal('avg_tree' in row, false);
   assert.equal(row.tree, 20);
   assert.equal(row.total, 27);
+  assert.equal(row.peak_tree, 100);
+  assert.equal(row.peak_total, 45);
+  assert.equal(row.peak_risk_tree, 'Moderate');
 });

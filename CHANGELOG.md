@@ -1,11 +1,29 @@
 # API Changelog
 
-## 2.2.2 — 2026-08-27
+## 2.3.1 — 2026-09-24
 
 ### Fixed
 
 - On-demand forecast refreshes now release the scheduled-ingest quota reserve
   after the daily Ambee ingestion has completed.
+
+## 2.3.0 — 2026-09-13
+
+### Added
+
+- Daily city rows now include peak category and total values plus peak risk
+  labels alongside the existing daily averages.
+- Sentry captures client, server, edge, and global application errors when
+  `NEXT_PUBLIC_SENTRY_DSN` is configured.
+
+### Changed
+
+- The website now uses a latest-only map with bottom-anchored category
+  controls and a compact layer menu on mobile.
+- City pages now show the latest day in detail followed by a table containing
+  the complete captured daily history.
+- Hourly observations and forecasts remain available through the public API
+  and MCP tools but are no longer rendered on city pages.
 
 ## 2.2.1 — 2026-08-26
 

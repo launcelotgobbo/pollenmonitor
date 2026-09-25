@@ -29,9 +29,9 @@ export default function ChangelogPage() {
       <section className="space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
-            August 27, 2026
+            September 24, 2026
           </p>
-          <h2 className="mt-1 text-2xl font-semibold">2.2.2</h2>
+          <h2 className="mt-1 text-2xl font-semibold">2.3.1</h2>
         </div>
         <div className="space-y-3 text-sm leading-6 text-slate-600">
           <h3 className="font-semibold text-slate-900">Fixed</h3>
@@ -39,6 +39,43 @@ export default function ChangelogPage() {
             <li>
               On-demand forecast refreshes now release the scheduled-ingest
               quota reserve after the daily Ambee ingestion has completed.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            September 13, 2026
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.3.0</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Added</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Daily city rows now include peak category and total values plus
+              peak risk labels alongside the existing daily averages.
+            </li>
+            <li>
+              Sentry captures client, server, edge, and global application
+              errors when <code>NEXT_PUBLIC_SENTRY_DSN</code> is configured.
+            </li>
+          </ul>
+          <h3 className="font-semibold text-slate-900">Changed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              The website now uses a latest-only map with bottom-anchored
+              category controls and a compact layer menu on mobile.
+            </li>
+            <li>
+              City pages now show the latest day in detail followed by a table
+              containing the complete captured daily history.
+            </li>
+            <li>
+              Hourly observations and forecasts remain available through the
+              public API and MCP tools but are no longer rendered on city pages.
             </li>
           </ul>
         </div>

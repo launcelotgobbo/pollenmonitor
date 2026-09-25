@@ -62,7 +62,10 @@ export const OPENAPI_DOCUMENT = {
   },
   tags: [
     { name: 'Discovery', description: 'Find supported cities and available observation dates.' },
-    { name: 'Pollen', description: 'Retrieve historical and forecast pollen concentrations and risks.' },
+    {
+      name: 'Pollen',
+      description: 'Retrieve historical and forecast pollen concentrations and risks.',
+    },
     { name: 'Map', description: 'Retrieve compact cross-city GeoJSON for map and spatial use.' },
     { name: 'Weather', description: 'Retrieve daily weather and air-quality observations.' },
   ],
@@ -71,7 +74,8 @@ export const OPENAPI_DOCUMENT = {
       get: {
         operationId: 'listCities',
         summary: 'List supported cities',
-        description: 'Use the returned slug as the city parameter in pollen, forecast, and weather requests.',
+        description:
+          'Use the returned slug as the city parameter in pollen, forecast, and weather requests.',
         tags: ['Discovery'],
         'x-codeSamples': codeSamples('/api/cities'),
         responses: {
@@ -171,7 +175,7 @@ export const OPENAPI_DOCUMENT = {
         operationId: 'getPollen',
         summary: 'Get pollen by city or date',
         description:
-          'Provide city alone for up to 720 daily averages, city and date for hourly readings on that UTC date, or date alone for a compact cross-city summary. Unsupported city slugs return 404 with pointers to /api/cities and the MCP list_cities tool.',
+          'Provide city alone for up to 720 daily summaries with averages and peaks, city and date for hourly readings on that UTC date, or date alone for a compact cross-city summary. Unsupported city slugs return 404 with pointers to /api/cities and the MCP list_cities tool.',
         tags: ['Pollen'],
         'x-codeSamples': codeSamples('/api/pollen?city=berkeley&date=2026-08-25'),
         parameters: [
@@ -557,10 +561,17 @@ export const OPENAPI_DOCUMENT = {
           'grass',
           'weed',
           'total',
+          'peak_tree',
+          'peak_grass',
+          'peak_weed',
+          'peak_total',
           'species',
           'risk_tree',
           'risk_grass',
           'risk_weed',
+          'peak_risk_tree',
+          'peak_risk_grass',
+          'peak_risk_weed',
           'timezone',
         ],
         properties: {
@@ -569,10 +580,17 @@ export const OPENAPI_DOCUMENT = {
           grass: nullableNumber,
           weed: nullableNumber,
           total: nullableNumber,
+          peak_tree: nullableNumber,
+          peak_grass: nullableNumber,
+          peak_weed: nullableNumber,
+          peak_total: nullableNumber,
           species: { $ref: '#/components/schemas/Species' },
           risk_tree: { $ref: '#/components/schemas/PollenRisk' },
           risk_grass: { $ref: '#/components/schemas/PollenRisk' },
           risk_weed: { $ref: '#/components/schemas/PollenRisk' },
+          peak_risk_tree: { $ref: '#/components/schemas/PollenRisk' },
+          peak_risk_grass: { $ref: '#/components/schemas/PollenRisk' },
+          peak_risk_weed: { $ref: '#/components/schemas/PollenRisk' },
           timezone: nullableString,
         },
       },
@@ -773,8 +791,7 @@ export const OPENAPI_DOCUMENT = {
           source: { type: 'string', enum: ['cache', 'ambee'] },
           stale: {
             type: 'boolean',
-            description:
-              'True when cached rows are served because refresh was blocked or failed.',
+            description: 'True when cached rows are served because refresh was blocked or failed.',
           },
           quotaExhausted: { type: 'boolean' },
           fetchedAt: { type: ['string', 'null'], format: 'date-time' },

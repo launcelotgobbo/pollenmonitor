@@ -1,6 +1,6 @@
 import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
 import { utcDayWindow } from '@/lib/date';
-import type { DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
+import type { DailyPollenHistoryRow, DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
 import { withNabRisk } from '@/lib/risk';
 import { normalizeSpecies } from '@/lib/species';
 
@@ -10,14 +10,18 @@ export type DailyPollenDbRow = {
   grass: number | null;
   weed: number | null;
   total: number | null;
+  peak_tree: number | null;
+  peak_grass: number | null;
+  peak_weed: number | null;
+  peak_total: number | null;
   timezone: string | null;
   species: unknown;
+  peak_species: unknown;
 };
 
-export async function getHourlyPollenRows(
-  city: string,
-  date: string,
-): Promise<HourlyPollenRow[]> {
+const DAILY_API_LIMIT = 720;
+
+export async function getHourlyPollenRows(city: string, date: string): Promise<HourlyPollenRow[]> {
   const { dayStart, dayEnd } = utcDayWindow(date);
   const { rows } = await query<{
     ts: string;
@@ -47,7 +51,7 @@ export async function getHourlyPollenRows(
   );
 }
 
-export async function getDailyPollenRows(city: string): Promise<DailyPollenRow[]> {
+async function queryDailyPollenRows(city: string, limit: number): Promise<DailyPollenRow[]> {
   const { rows } = await query<DailyPollenDbRow>(
     `WITH recent_days AS MATERIALIZED (
        SELECT (ts AT TIME ZONE 'UTC')::date AS day
@@ -55,7 +59,7 @@ export async function getDailyPollenRows(city: string): Promise<DailyPollenRow[]
        WHERE city_slug = $1
        GROUP BY 1
        ORDER BY 1 DESC
-       LIMIT 720
+       LIMIT $2
      ),
      filtered AS MATERIALIZED (
        SELECT reading.ts, reading.tree, reading.grass, reading.weed, reading.tz, reading.species,
@@ -76,6 +80,13 @@ export async function getDailyPollenRows(city: string): Promise<DailyPollenRow[]
               WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
               ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
             END))::int AS total,
+            max(tree)::int AS peak_tree,
+            max(grass)::int AS peak_grass,
+            max(weed)::int AS peak_weed,
+            max(CASE
+              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
+              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
+            END)::int AS peak_total,
             max(tz) AS timezone
        FROM filtered
        GROUP BY 1
@@ -84,34 +95,83 @@ export async function getDailyPollenRows(city: string): Promise<DailyPollenRow[]
        SELECT filtered.day::text AS date,
               category.key AS category,
               item.key AS species_name,
-              round(avg(item.value::numeric))::int AS value
+              round(avg(item.value::numeric))::int AS value,
+              max(item.value::numeric)::int AS peak_value
        FROM filtered
        CROSS JOIN LATERAL ${numericSpeciesEntriesSql('filtered.species')}
        GROUP BY 1, 2, 3
      ),
      species_categories AS (
-       SELECT date, category, jsonb_object_agg(species_name, value) AS values
+       SELECT date,
+              category,
+              jsonb_object_agg(species_name, value) AS values,
+              jsonb_object_agg(species_name, peak_value) AS peak_values
        FROM species_values
        GROUP BY 1, 2
      ),
      daily_species AS (
-       SELECT date, jsonb_object_agg(category, values) AS species
+       SELECT date,
+              jsonb_object_agg(category, values) AS species,
+              jsonb_object_agg(category, peak_values) AS peak_species
        FROM species_categories
        GROUP BY 1
      )
-     SELECT daily.*, daily_species.species
+     SELECT daily.*, daily_species.species, daily_species.peak_species
      FROM daily
      LEFT JOIN daily_species USING (date)
      ORDER BY date DESC`,
-    [city],
+    [city, limit],
   );
 
   return toDailyPollenRows(rows);
 }
 
+export function getDailyPollenRows(city: string): Promise<DailyPollenRow[]> {
+  return queryDailyPollenRows(city, DAILY_API_LIMIT);
+}
+
+export async function getLatestDailyPollenRow(city: string): Promise<DailyPollenRow | null> {
+  const [latest] = await queryDailyPollenRows(city, 1);
+  return latest ?? null;
+}
+
+export async function getCompleteDailyPollenHistory(
+  city: string,
+): Promise<DailyPollenHistoryRow[]> {
+  const { rows } = await query<DailyPollenHistoryRow>(
+    `SELECT (ts AT TIME ZONE 'UTC')::date::text AS date,
+            round(avg(tree))::int AS tree,
+            round(avg(grass))::int AS grass,
+            round(avg(weed))::int AS weed,
+            round(avg(CASE
+              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
+              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
+            END))::int AS total,
+            max(tree)::int AS peak_tree,
+            max(grass)::int AS peak_grass,
+            max(weed)::int AS peak_weed,
+            max(CASE
+              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
+              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
+            END)::int AS peak_total
+     FROM pollen_readings_hourly
+     WHERE city_slug = $1
+     GROUP BY 1
+     ORDER BY 1 DESC`,
+    [city],
+  );
+  return rows;
+}
+
 export function toDailyPollenRows(rows: DailyPollenDbRow[]): DailyPollenRow[] {
   return rows.map((row) => {
     const species = normalizeSpecies(row.species);
+    const peakClassified = withNabRisk({
+      tree: row.peak_tree,
+      grass: row.peak_grass,
+      weed: row.peak_weed,
+      species: normalizeSpecies(row.peak_species),
+    });
     const classified = withNabRisk({
       tree: row.tree,
       grass: row.grass,
@@ -124,11 +184,18 @@ export function toDailyPollenRows(rows: DailyPollenDbRow[]): DailyPollenRow[] {
       grass: row.grass,
       weed: row.weed,
       total: row.total,
+      peak_tree: row.peak_tree,
+      peak_grass: row.peak_grass,
+      peak_weed: row.peak_weed,
+      peak_total: row.peak_total,
       timezone: row.timezone,
       species,
       risk_tree: classified.risk_tree,
       risk_grass: classified.risk_grass,
       risk_weed: classified.risk_weed,
+      peak_risk_tree: peakClassified.risk_tree,
+      peak_risk_grass: peakClassified.risk_grass,
+      peak_risk_weed: peakClassified.risk_weed,
     };
   });
 }
