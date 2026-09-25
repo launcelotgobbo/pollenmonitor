@@ -39,8 +39,9 @@
 - Source: Ambee API (`AMBEE_API_KEY`). Ensure the key is available in Vercel and local `.env` files.
 - Quota tracking: set `AMBEE_DAILY_QUOTA` (default 200) so ingest logs capture Ambee call counts and warn when exceeding the plan.
 - Ingestion job: fetch latest readings by city/date and upsert hourly Ambee measurements (`pollen_readings_hourly`).
-- Rate limits: implement retries with exponential backoff; respect provider quotas.
+- Rate limits: `fetchWithRetry` (`lib/http.ts`) retries 5xx with exponential backoff, never 429, and aborts any attempt after 15 s. Pass `onAttempt` so quota counters see every HTTP attempt, retries included.
 - Mapping: use the geojson seed file to normalize city slugs; Ambee supplies pollen metrics.
+- Weather: OpenWeather One Call 4.0 daily timeline (`data/4.0/onecall/timeline/1day`, one call per city per run) plus the free Air Pollution history API. The timeline requires the "One Call by Call" subscription; 3.0 is deprecated and cannot be subscribed to anymore.
 
 ## Commit & Pull Request Guidelines
 - Conventional Commits: feat:, fix:, chore:, docs:, refactor:, test:.
@@ -61,7 +62,7 @@
   - Auth: set `CRON_SECRET` in every environment so Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual triggers use a header, never a query string: `curl -H "x-ingest-token: $INGEST_TOKEN" ".../api/cron/daily-ingest"`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration. Stack traces stay in function logs and are not persisted.
 - Inspect runs: `curl -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest-logs"` (operator-only, not a public endpoint). Filters: `?job=daily-ingest|manual-ingest`, `?status=success|partial|failure`, `?limit=1..200`.
-- Health: `GET /api/health` (public, no auth) returns 200 when the DB answers and the daily ingest, pollen, and weather data are fresh, 503 otherwise. Point uptime monitors / Vercel alerts at it.
+- Health: `GET /api/health` (public, no auth) returns 200 when the DB answers and the daily ingest, pollen, and weather data are fresh, 503 otherwise. `.github/workflows/health-monitor.yml` probes it every 30 minutes and fails the run (GitHub emails the workflow's last committer) on anything but 200; the site header and map show the same report as a "Data current / Data delayed" badge (`components/DataFreshness.tsx`).
 - Retention: the daily cron prunes `pollen_forecast_hourly` older than 7 days and `ambee_usage_logs` / `ingest_logs` older than 90 days after each run (`pruneOperationalData` in `lib/db.ts`). `pollen_readings_hourly` and `weather_daily` are kept indefinitely.
 - Local git hook: run `npm run setup:hooks` once to enforce `npm run build` on each commit (set `SKIP_PRECOMMIT_BUILD=1` to bypass when needed).
 

@@ -88,12 +88,13 @@ export async function ambeeHourlyRange(
   lon: number,
   fromISO: string,
   toISO: string,
+  retryOptions?: RetryOptions,
 ): Promise<AmbeeHourly[]> {
   if (isMockMode()) return mockHourly(fromISO, toISO);
   const enc = (s: string) => encodeURIComponent(s);
   // Pollen API v3 (https://docs-pollen-v3.ambeedata.com/); history covers at most the past 48 hours
   const url = `${AMBEE_BASE}/v3/pollen/history?lat=${lat}&lng=${lon}&from=${enc(fromISO)}&to=${enc(toISO)}&locale=true`;
-  return fetchPollenList(url, 'Ambee hourly range');
+  return fetchPollenList(url, 'Ambee hourly range', retryOptions);
 }
 
 export async function ambeeForecast48h(

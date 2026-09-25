@@ -1,0 +1,38 @@
+name: Health monitor
+
+# Polls the public health endpoint and fails the run when it reports 503, so a
+# stale ingest or broken provider surfaces as a failed-workflow notification
+# without any external monitoring service.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    name: Probe /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      HEALTH_URL: https://www.pollenmonitor.dev/api/health
+    steps:
+      - name: Request health report
+        run: |
+          set -o pipefail
+          status=$(curl --silent --show-error --max-time 25 --retry 2 --retry-delay 5 \
+            --output report.json --write-out '%{http_code}' "$HEALTH_URL")
+          echo "HTTP $status from $HEALTH_URL"
+          jq . report.json || cat report.json
+          {
+            echo "### Health report (HTTP $status)"
+            echo '```json'
+            cat report.json
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != "200" ]; then
+            echo "::error title=Pollen Monitor degraded::$(jq -c '.checks | map_values(select(. != null) | .ok)' report.json 2>/dev/null)"
+            exit 1
+          fi

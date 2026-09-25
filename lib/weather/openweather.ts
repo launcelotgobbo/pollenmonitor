@@ -1,8 +1,15 @@
 import { fetchWithRetry } from '@/lib/http';
 import { parseUtcDate } from '@/lib/date';
 
-const DAY_SUMMARY_BASE = 'https://api.openweathermap.org/data/3.0/onecall/day_summary';
+// One Call 3.0 is deprecated and can no longer be subscribed to; the 4.0 daily
+// timeline is the replacement for `day_summary` and covers history and
+// forecast from one endpoint.
+const DAILY_TIMELINE_BASE = 'https://api.openweathermap.org/data/4.0/onecall/timeline/1day';
 const AIR_BASE = 'https://api.openweathermap.org/data/2.5/air_pollution/history';
+
+// Documented page size for the 1-day timeline.
+const DAILY_TIMELINE_PAGE_DAYS = 10;
+const DAILY_TIMELINE_MAX_PAGES = 4;
 
 function toUnix(dateISO: string): number {
   return Math.floor((parseUtcDate(dateISO)?.getTime() ?? Number.NaN) / 1000);
@@ -67,45 +74,96 @@ export class OpenWeatherSummaryError extends Error {
   }
 }
 
-export async function fetchDailySummary(
-  lat: number,
-  lon: number,
-  date: string,
-  onProviderCall?: () => void,
-): Promise<DailyWeather> {
-  const key = process.env.OPENWEATHER_API_KEY || '';
-  const url = `${DAY_SUMMARY_BASE}?lat=${lat}&lon=${lon}&date=${encodeURIComponent(date)}&units=metric&appid=${encodeURIComponent(key)}`;
-  onProviderCall?.();
-  const res = await fetchWithRetry(url);
+// Daily precipitation arrives as a plain mm volume, but the 4.0 docs also list
+// the hourly `{ "1h": mm }` shape, so accept both.
+function precipVolume(value: unknown): number | null {
+  if (typeof value === 'number') return numeric(value);
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return numeric(record['1h']) ?? numeric(record.total);
+  }
+  return null;
+}
+
+function mapTimelineRecord(record: any, timezone: string | null): DailyWeather | null {
+  const dt = numeric(record?.dt);
+  if (dt === null) return null;
+  const temp = record?.temp || {};
+  const feelsLike = record?.feels_like || {};
+  const weather = Array.isArray(record?.weather) ? record.weather[0] : null;
+  const rain = precipVolume(record?.rain);
+  const snow = precipVolume(record?.snow);
+
+  return {
+    // Daily records are stamped at local noon, so the UTC date of `dt` is the
+    // local calendar day for every timezone within ±11 hours of UTC.
+    date: new Date(dt * 1000).toISOString().slice(0, 10),
+    tz: timezone,
+    temp_min_c: numeric(temp.min),
+    temp_max_c: numeric(temp.max),
+    temp_day_c: numeric(temp.day),
+    feels_like_day_c: numeric(feelsLike.day),
+    humidity: numeric(record?.humidity),
+    pressure_hpa: numeric(record?.pressure),
+    wind_speed_ms: numeric(record?.wind_speed),
+    wind_deg: numeric(record?.wind_deg),
+    clouds_pct: numeric(record?.clouds),
+    precip_mm: rain === null && snow === null ? null : (rain ?? 0) + (snow ?? 0),
+    uvi: numeric(record?.uvi),
+    weather_main: typeof weather?.main === 'string' ? weather.main : null,
+    weather_desc: typeof weather?.description === 'string' ? weather.description : null,
+  };
+}
+
+async function fetchTimelinePage(url: string, onProviderCall?: () => void) {
+  const res = await fetchWithRetry(url, undefined, { onAttempt: onProviderCall });
   if (!res.ok) {
     throw new OpenWeatherSummaryError(res.status, await res.text());
   }
-  const json = await res.json();
-  const temperature = json?.temperature || {};
-  const feelsLike = json?.feels_like || {};
-  const humidity = json?.humidity || {};
-  const pressure = json?.pressure || {};
-  const wind = json?.wind || {};
-  const precipitation = json?.precipitation || {};
+  return res.json();
+}
 
-  return {
-    date: typeof json?.date === 'string' ? json.date : date,
-    tz: typeof json?.tz === 'string'
-      ? json.tz
-      : typeof json?.timezone === 'string'
-        ? json.timezone
-        : null,
-    temp_min_c: numeric(temperature.min),
-    temp_max_c: numeric(temperature.max),
-    temp_day_c: numeric(temperature.afternoon),
-    feels_like_day_c: numeric(feelsLike.afternoon),
-    humidity: numeric(humidity.afternoon),
-    pressure_hpa: numeric(pressure.afternoon),
-    wind_speed_ms: numeric(wind?.max?.speed) ?? numeric(wind?.afternoon?.speed),
-    wind_deg: numeric(wind?.max?.direction) ?? numeric(wind?.afternoon?.direction),
-    clouds_pct: numeric(json?.cloud_cover?.afternoon),
-    precip_mm: numeric(precipitation.total),
-  };
+/**
+ * Fetch daily weather for the given UTC dates (sorted ascending). One request
+ * covers up to ten consecutive days, so a normal ingest window costs a single
+ * call per city.
+ */
+export async function fetchDailyTimeline(
+  lat: number,
+  lon: number,
+  dates: string[],
+  onProviderCall?: () => void,
+): Promise<Record<string, DailyWeather>> {
+  const byDate: Record<string, DailyWeather> = {};
+  if (dates.length === 0) return byDate;
+
+  const wanted = new Set(dates);
+  const lastWanted = dates[dates.length - 1];
+  const key = process.env.OPENWEATHER_API_KEY || '';
+  // Start a day early: the first record returned is the local day containing
+  // `start`, which for western timezones is the day before the UTC date.
+  const start = toUnix(dates[0]) - 86_400;
+  let url: string | null =
+    `${DAILY_TIMELINE_BASE}?lat=${lat}&lon=${lon}&start=${start}&units=metric&appid=${encodeURIComponent(key)}`;
+
+  for (let page = 0; url && page < DAILY_TIMELINE_MAX_PAGES; page++) {
+    const json = await fetchTimelinePage(url, onProviderCall);
+    const timezone = typeof json?.timezone === 'string' ? json.timezone : null;
+    const records = Array.isArray(json?.data) ? json.data : [];
+    let latestSeen: string | null = null;
+    for (const record of records) {
+      const day = mapTimelineRecord(record, timezone);
+      if (!day) continue;
+      if (wanted.has(day.date)) byDate[day.date] = day;
+      if (!latestSeen || day.date > latestSeen) latestSeen = day.date;
+    }
+    const covered = latestSeen !== null && latestSeen >= lastWanted;
+    url =
+      !covered && records.length >= DAILY_TIMELINE_PAGE_DAYS && typeof json?.next === 'string'
+        ? json.next
+        : null;
+  }
+  return byDate;
 }
 
 export async function fetchAirHistory(
@@ -119,8 +177,7 @@ export async function fetchAirHistory(
   const start = toUnix(fromISO);
   const end = toUnix(toISO);
   const url = `${AIR_BASE}?lat=${lat}&lon=${lon}&start=${start}&end=${end}&appid=${encodeURIComponent(key)}`;
-  onProviderCall?.();
-  const res = await fetchWithRetry(url);
+  const res = await fetchWithRetry(url, undefined, { onAttempt: onProviderCall });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`OpenWeather Air History failed (${res.status}): ${body}`);
@@ -154,16 +211,10 @@ export async function openweatherDailyWithAqi(
   let summaryError: OpenWeatherSummaryError | Error | null = null;
 
   if (includeSummary) {
-    const summaries = await Promise.allSettled(
-      dates.map((date) => fetchDailySummary(lat, lon, date, onProviderCall)),
-    );
-    for (const outcome of summaries) {
-      if (outcome.status === 'fulfilled') {
-        byDate[outcome.value.date] = outcome.value;
-      } else {
-        summaryError ??=
-          outcome.reason instanceof Error ? outcome.reason : new Error(String(outcome.reason));
-      }
+    try {
+      Object.assign(byDate, await fetchDailyTimeline(lat, lon, dates, onProviderCall));
+    } catch (error) {
+      summaryError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
