@@ -14,6 +14,7 @@ Pollen Monitor provides public, read-only pollen, species, forecast, weather, an
 - MCP connection guide: ${absoluteUrl('/docs/mcp')}
 - Supported cities: ${absoluteUrl('/api/cities')}
 - Latest cross-city pollen GeoJSON: ${absoluteUrl('/api/map-data?date=latest')}
+- Data freshness check (200 healthy, 503 degraded): ${absoluteUrl('/api/health')}
 
 No authentication or API key is required. REST endpoints support cross-origin
 browser requests. MCP tools are read-only and publish input and output schemas.

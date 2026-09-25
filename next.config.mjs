@@ -16,6 +16,7 @@ const nextConfig = {
       '/api/cities',
       '/api/city-type-matrix',
       '/api/forecast',
+      '/api/health',
       '/api/latest-date',
       '/api/map-data',
       '/api/map-style',

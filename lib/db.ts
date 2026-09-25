@@ -260,10 +260,11 @@ export async function reserveAmbeeCall({
   };
 }
 
-export async function logIngest(status: string, details: Record<string, any>) {
+export async function logIngest(job: string, status: string, details: Record<string, any>) {
   try {
     const json = JSON.stringify(details);
-    await q(`INSERT INTO ingest_logs (job, status, details) VALUES ('ingest', $1, $2::jsonb)`, [
+    await q(`INSERT INTO ingest_logs (job, status, details) VALUES ($1, $2, $3::jsonb)`, [
+      job,
       status,
       json,
     ]);
@@ -288,6 +289,40 @@ export async function logProviderUsage(job: string, jobId: string | null, calls:
       message: (err as Error)?.message ?? String(err),
     });
   }
+}
+
+// Forecast rows are a short-lived cache (reads only look one hour back);
+// usage and run logs only need to cover quota accounting and recent history.
+export const FORECAST_RETENTION_DAYS = 7;
+export const LOG_RETENTION_DAYS = 90;
+
+export type RetentionSummary = {
+  forecastRows: number;
+  providerUsageRows: number;
+  ingestLogRows: number;
+};
+
+export async function pruneOperationalData({
+  forecastRetentionDays = FORECAST_RETENTION_DAYS,
+  logRetentionDays = LOG_RETENTION_DAYS,
+}: { forecastRetentionDays?: number; logRetentionDays?: number } = {}): Promise<RetentionSummary> {
+  const forecast = await q(
+    `DELETE FROM pollen_forecast_hourly WHERE ts < now() - make_interval(days => $1::int)`,
+    [forecastRetentionDays],
+  );
+  const usage = await q(
+    `DELETE FROM ambee_usage_logs WHERE ts < now() - make_interval(days => $1::int)`,
+    [logRetentionDays],
+  );
+  const ingest = await q(
+    `DELETE FROM ingest_logs WHERE ts < now() - make_interval(days => $1::int)`,
+    [logRetentionDays],
+  );
+  return {
+    forecastRows: forecast.rowCount ?? 0,
+    providerUsageRows: usage.rowCount ?? 0,
+    ingestLogRows: ingest.rowCount ?? 0,
+  };
 }
 
 export async function upsertWeatherDaily(row: {

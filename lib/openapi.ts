@@ -68,6 +68,7 @@ export const OPENAPI_DOCUMENT = {
     },
     { name: 'Map', description: 'Retrieve compact cross-city GeoJSON for map and spatial use.' },
     { name: 'Weather', description: 'Retrieve daily weather and air-quality observations.' },
+    { name: 'Operations', description: 'Check data freshness before relying on the service.' },
   ],
   paths: {
     '/api/cities': {
@@ -402,6 +403,47 @@ export const OPENAPI_DOCUMENT = {
         },
       },
     },
+    '/api/health': {
+      get: {
+        operationId: 'getHealth',
+        summary: 'Check service and data freshness',
+        description:
+          'Reports whether the database answers and whether the daily ingest, pollen observations, and weather rows are within their expected freshness windows. Returns 200 when every check passes and 503 otherwise, so it can back uptime monitors and alerts.',
+        tags: ['Operations'],
+        'x-codeSamples': codeSamples('/api/health'),
+        responses: {
+          '200': {
+            description: 'All checks passed.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/HealthReport' },
+                examples: {
+                  healthy: {
+                    summary: 'Fresh data and a recent successful ingest',
+                    value: API_EXAMPLES.health,
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description:
+              'At least one check failed. The body is the same report with ok: false; checks are null when the database is unreachable.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/HealthReport' },
+                examples: {
+                  degraded: {
+                    summary: 'Daily ingest has not run for more than a day',
+                    value: API_EXAMPLES.healthDegraded,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     parameters: {
@@ -479,6 +521,69 @@ export const OPENAPI_DOCUMENT = {
         type: 'object',
         required: ['error'],
         properties: { error: { type: 'string' } },
+      },
+      HealthReport: {
+        type: 'object',
+        required: ['ok', 'status', 'version', 'ts', 'checks'],
+        properties: {
+          ok: { type: 'boolean' },
+          status: { type: 'string', enum: ['ok', 'degraded', 'unavailable'] },
+          version: { type: 'string', example: API_VERSION },
+          ts: { $ref: '#/components/schemas/DateTime' },
+          checks: {
+            type: 'object',
+            required: ['database', 'dailyIngest', 'pollen', 'weather'],
+            properties: {
+              database: {
+                type: 'object',
+                required: ['ok', 'latencyMs'],
+                properties: {
+                  ok: { type: 'boolean' },
+                  latencyMs: { type: 'integer' },
+                  error: { type: 'string', enum: ['connection', 'query'] },
+                },
+              },
+              dailyIngest: {
+                type: ['object', 'null'],
+                required: ['ok', 'lastRunAt', 'status', 'ageHours', 'maxAgeHours', 'wrote', 'failed'],
+                properties: {
+                  ok: { type: 'boolean' },
+                  lastRunAt: { type: ['string', 'null'], format: 'date-time' },
+                  status: { type: ['string', 'null'], enum: ['success', 'partial', 'failure', null] },
+                  ageHours: { type: ['number', 'null'] },
+                  maxAgeHours: { type: 'integer' },
+                  wrote: { type: ['integer', 'null'] },
+                  failed: { type: ['integer', 'null'] },
+                },
+              },
+              pollen: {
+                type: ['object', 'null'],
+                required: ['ok', 'latestObservationAt', 'ageHours', 'maxAgeHours', 'citiesReporting'],
+                properties: {
+                  ok: { type: 'boolean' },
+                  latestObservationAt: { type: ['string', 'null'], format: 'date-time' },
+                  ageHours: { type: ['number', 'null'] },
+                  maxAgeHours: { type: 'integer' },
+                  citiesReporting: { type: 'integer' },
+                },
+              },
+              weather: {
+                type: ['object', 'null'],
+                required: ['ok', 'latestDate', 'ageDays', 'maxAgeDays', 'summaryCoverage'],
+                properties: {
+                  ok: { type: 'boolean' },
+                  latestDate: { type: ['string', 'null'], format: 'date' },
+                  ageDays: { type: ['integer', 'null'] },
+                  maxAgeDays: { type: 'integer' },
+                  summaryCoverage: {
+                    type: ['number', 'null'],
+                    description: 'Share of the latest weather day with One Call summary fields present.',
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       UnsupportedCityError: {
         type: 'object',

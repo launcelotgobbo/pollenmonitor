@@ -150,7 +150,7 @@ export async function runIngestJob({
     });
   }
 
-  await logIngest(status, result);
+  await logIngest(job, status, result);
 
   const usageNotes = {
     window: { from: fromISO, to: toISO },

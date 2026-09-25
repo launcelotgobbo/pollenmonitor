@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { formatUtcSqlTimestamp } from '@/lib/date';
-import { logIngest } from '@/lib/db';
+import { logIngest, pruneOperationalData, type RetentionSummary } from '@/lib/db';
 import { loadTopCities } from '@/lib/ingest/cities';
 import {
   DAILY_INGEST_LOCAL_HOUR,
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       ts: new Date().toISOString(),
       error: failure.error,
     });
-    await logIngest('failure', failure);
+    await logIngest('daily-ingest', 'failure', failure);
     return Response.json(failure, { status: 500 });
   }
 
@@ -105,7 +105,28 @@ export async function GET(req: NextRequest) {
     fromISO,
     toISO,
   });
-  return Response.json(result, { status: httpStatus });
+
+  // Housekeeping rides along with the scheduled run; a pruning failure must
+  // not turn a successful ingest into an error response.
+  let retention: RetentionSummary | null = null;
+  try {
+    retention = await pruneOperationalData();
+    console.log('[cron daily-ingest] retention pruned', {
+      level: 'info',
+      job: 'daily-ingest',
+      jobId,
+      ...retention,
+    });
+  } catch (error) {
+    console.error('[cron daily-ingest] retention pruning failed', {
+      level: 'error',
+      job: 'daily-ingest',
+      jobId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return Response.json({ ...result, retention }, { status: httpStatus });
 }
 
 export const dynamic = 'force-dynamic';
