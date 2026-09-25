@@ -14,7 +14,8 @@
 - npm run build: production build with Next.js.
 - npm start: run the production server locally.
 - npm run lint && npm run format: ESLint and Prettier checks/fixes.
-- npm test: run unit tests (Jest + React Testing Library).
+- npm test: run unit tests (node:test via tsx, `tests/**/*.test.ts`).
+- npm run test:db: run database integration tests (`tests/integration/*.dbtest.ts`) against a throwaway local Postgres. Requires `POSTGRES_TEST_URL` (localhost only; the suite drops and rebuilds `public`), e.g. `docker run --rm -d --name pm-test-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=pollenmonitor_test -p 55432:5432 postgres:17-alpine` then `POSTGRES_TEST_URL='postgres://postgres:postgres@localhost:55432/pollenmonitor_test?sslmode=disable' npm run test:db`. CI runs the same suite against a Postgres 17 service.
 - npx playwright test: run e2e tests (if Playwright configured).
 
 ## Coding Style & Naming Conventions
@@ -24,7 +25,7 @@
 - ESLint (next/core-web-vitals) and Prettier; fix before commit.
 
 ## Testing Guidelines
-- Unit: Jest + React Testing Library under tests/unit with files *.test.ts(x).
+- Unit: node:test under tests/ with files *.test.ts; database integration tests under tests/integration with files *.dbtest.ts (see `npm run test:db`).
 - E2E: Playwright under tests/e2e with files *.spec.ts.
 - Coverage: target ≥ 80%; include data fetching and error states.
 - Add tests with new features and bug fixes.
@@ -54,7 +55,7 @@
 - Useful: vercel env pull .env.local to sync environment.
  
 ## Operations
-- Migrations: run `npm run db:migrate` locally or execute `migrations/001_init.sql` in your DB once.
+- Migrations: `npm run db:migrate` applies every `migrations/NNN_name.sql` not yet recorded in `schema_migrations`, each in its own transaction, in version order, under an advisory lock so concurrent runs cannot double-apply. It stores a sha256 of each file and refuses to run if an applied file has been edited; add a new migration instead. `npm run db:migrate -- --status` lists pending/applied/drifted files without changing anything. `npm run db:migrate -- --baseline` records every file as applied without executing it, for databases that were migrated by hand before the runner existed.
 - Manual ingest (hourly Ambee):
   - Local: `curl -X POST -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest"`
   - Options: `?city=slug` to target one city, `?hours=48` to adjust window, `?dry=true` for a dry run.
