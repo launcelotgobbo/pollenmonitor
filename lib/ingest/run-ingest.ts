@@ -71,6 +71,7 @@ export async function runIngestJob({
             jobId,
             city: outcome.city,
             daysFetched: outcome.daysFetched,
+            ...(outcome.summaryError ? { summaryError: outcome.summaryError } : {}),
           });
         } else {
           console.error(`${logLabel} weather failure`, {
@@ -86,6 +87,16 @@ export async function runIngestJob({
     });
     weatherSummary = weather.summary;
     weatherResults = weather.cityResults;
+    if (weatherSummary.summaryFailures > 0) {
+      console.warn(`${logLabel} weather daily summary unavailable`, {
+        level: 'warn',
+        job,
+        jobId,
+        summaryFailures: weatherSummary.summaryFailures,
+        cities: cities.length,
+        firstError: weatherResults.find((r) => r.summaryError)?.summaryError,
+      });
+    }
   }
 
   const weatherOk = weatherSummary?.ok ?? true;

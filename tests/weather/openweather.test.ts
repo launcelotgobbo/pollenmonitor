@@ -1,6 +1,10 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { openweatherDailyWithAqi, utcDatesInWindow } from '@/lib/weather/openweather';
+import {
+  OpenWeatherSummaryError,
+  openweatherDailyWithAqi,
+  utcDatesInWindow,
+} from '@/lib/weather/openweather';
 
 const DAY1 = Date.UTC(2026, 6, 7, 12) / 1000; // 2026-07-07T12:00Z
 const DAY2 = Date.UTC(2026, 6, 8, 12) / 1000; // 2026-07-08T12:00Z
@@ -62,11 +66,15 @@ async function withStubbedFetch<T>(fn: () => Promise<T>): Promise<{ result: T; u
 }
 
 test('openweatherDailyWithAqi merges daily weather with per-day AQI averages', async () => {
-  const { result: byDate, urls } = await withStubbedFetch(() =>
+  const {
+    result: { byDate, summaryError },
+    urls,
+  } = await withStubbedFetch(() =>
     openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-09T00:00:00Z'),
   );
 
   assert.equal(urls.length, 3);
+  assert.equal(summaryError, null);
 
   const day1 = byDate['2026-07-07'];
   assert.ok(day1);
@@ -91,7 +99,9 @@ test('openweatherDailyWithAqi merges daily weather with per-day AQI averages', a
 });
 
 test('openweatherDailyWithAqi fetches each UTC date touched by the requested window', async () => {
-  const { result: byDate } = await withStubbedFetch(() =>
+  const {
+    result: { byDate },
+  } = await withStubbedFetch(() =>
     openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-09T00:00:00Z'),
   );
 
@@ -114,13 +124,69 @@ test('utcDatesInWindow treats zone-less job timestamps as UTC regardless of loca
   );
 });
 
-test('openweatherDailyWithAqi surfaces daily summary API failures', async () => {
+async function withSummaryFailure<T>(status: number, fn: () => Promise<T>): Promise<T> {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: any) => {
+    const url = String(input);
+    if (url.includes('/onecall/day_summary')) {
+      return new Response('{"cod":' + status + ',"message":"One Call 3.0 requires a separate subscription"}', { status });
+    }
+    return new Response(JSON.stringify(airResponse), { status: 200 });
+  }) as typeof fetch;
+  try {
+    return await fn();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+test('openweatherDailyWithAqi keeps AQI rows and reports the daily summary failure', async () => {
+  const { byDate, summaryError } = await withSummaryFailure(401, () =>
+    openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-09T00:00:00Z'),
+  );
+
+  assert.ok(summaryError instanceof OpenWeatherSummaryError);
+  assert.equal(summaryError.status, 401);
+  assert.equal(summaryError.affectsAllCities, true);
+  assert.match(summaryError.message, /OpenWeather daily summary failed \(401\)/);
+
+  assert.deepEqual(Object.keys(byDate).sort(), ['2026-07-07', '2026-07-08']);
+  assert.equal(byDate['2026-07-07'].aqi, 3);
+  assert.equal(byDate['2026-07-07'].temp_max_c, undefined);
+  assert.equal(byDate['2026-07-08'].aqi, 1);
+});
+
+test('openweatherDailyWithAqi treats a 500 summary failure as city-specific', async () => {
+  const { summaryError } = await withSummaryFailure(500, () =>
+    openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-08T00:00:00Z'),
+  );
+  assert.ok(summaryError instanceof OpenWeatherSummaryError);
+  assert.equal(summaryError.affectsAllCities, false);
+});
+
+test('openweatherDailyWithAqi can skip the daily summary and still fetch AQI', async () => {
+  const {
+    result: { byDate, summaryError },
+    urls,
+  } = await withStubbedFetch(() =>
+    openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-09T00:00:00Z', undefined, {
+      includeSummary: false,
+    }),
+  );
+
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /air_pollution\/history/);
+  assert.equal(summaryError, null);
+  assert.equal(byDate['2026-07-07'].aqi, 3);
+});
+
+test('openweatherDailyWithAqi still fails when the air history request fails', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response('invalid key', { status: 401 })) as typeof fetch;
   try {
     await assert.rejects(
       openweatherDailyWithAqi(39.74, -104.99, '2026-07-07T00:00:00Z', '2026-07-09T00:00:00Z'),
-      /OpenWeather daily summary failed \(401\)/,
+      /OpenWeather Air History failed \(401\)/,
     );
   } finally {
     globalThis.fetch = originalFetch;

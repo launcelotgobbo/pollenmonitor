@@ -9,13 +9,33 @@ function slugify(name: string) {
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
 const localGeoJsonPath = path.join(process.cwd(), 'public', 'data', CITY_GEOJSON_FILENAME);
 
-function parseFeatureCollection(fc: any): City[] {
-  return fc.features.map((f: any) => ({
-    name: f.properties.name as string,
-    slug: slugify(f.properties.name as string),
-    lon: f.geometry.coordinates[0],
-    lat: f.geometry.coordinates[1],
-  }));
+export function parseFeatureCollection(fc: any): City[] {
+  const cities: City[] = [];
+  const seen = new Set<string>();
+  for (const f of fc.features) {
+    const name = f.properties.name as string;
+    const explicitSlug = typeof f.properties.slug === 'string' ? f.properties.slug.trim() : '';
+    const slug = explicitSlug || slugify(name);
+    // Two features sharing a slug would each spend a provider call and then
+    // overwrite each other's rows, so only the first one is kept.
+    if (seen.has(slug)) {
+      console.warn('[cities] dropping feature with duplicate slug', {
+        level: 'warn',
+        slug,
+        name,
+        coordinates: f.geometry.coordinates,
+      });
+      continue;
+    }
+    seen.add(slug);
+    cities.push({
+      name,
+      slug,
+      lon: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+    });
+  }
+  return cities;
 }
 
 async function loadFromFilesystem(): Promise<City[] | null> {

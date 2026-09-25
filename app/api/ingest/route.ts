@@ -4,6 +4,7 @@ import {
   ApiValidationError,
   parseCalendarDateParameter,
   parseDateTimeParameter,
+  parseIntegerParameter,
   validationErrorResponse,
 } from '@/lib/api-validation';
 import {
@@ -58,28 +59,38 @@ export async function POST(req: NextRequest) {
   const requestedCity = searchParams.get('city');
   const dryRun = searchParams.get('dry') === 'true';
   const includeWeather = searchParams.get('includeWeather') !== 'false';
-  const hoursBack = Math.max(1, Math.min(AMBEE_HISTORY_HOURS, Number(searchParams.get('hours') || '48')));
 
   let toISO: string;
   let fromISO: string;
 
   try {
+    const hoursBack = parseIntegerParameter(searchParams.get('hours'), 'hours', {
+      defaultValue: AMBEE_HISTORY_HOURS,
+      min: 1,
+      max: AMBEE_HISTORY_HOURS,
+    });
     ({ fromISO, toISO } = requestedWindow(searchParams, hoursBack));
   } catch (error) {
     if (error instanceof ApiValidationError) return validationErrorResponse(error);
     throw error;
   }
 
+  const now = Date.now();
   const fromDate = parseUtcDate(fromISO);
-  const toDate = parseUtcDate(toISO);
+  let toDate = parseUtcDate(toISO);
+  if (toDate && toDate.getTime() > now) {
+    // Ambee has no future readings; a far-future `to` would only widen the window.
+    toDate = new Date(now);
+    toISO = formatUtcSqlTimestamp(toDate);
+  }
   if (!fromDate || !toDate || fromDate >= toDate) {
     return new Response(
-      JSON.stringify({ error: 'Invalid window: provide parseable from/to (or date) with from before to' }),
+      JSON.stringify({ error: 'Invalid window: provide parseable from/to (or date) with from before to and not in the future' }),
       { status: 400 },
     );
   }
 
-  const earliest = new Date(Date.now() - AMBEE_HISTORY_HOURS * 3600 * 1000);
+  const earliest = new Date(now - AMBEE_HISTORY_HOURS * 3600 * 1000);
   if (toDate <= earliest) {
     return new Response(
       JSON.stringify({
@@ -173,3 +184,5 @@ export async function POST(req: NextRequest) {
 }
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 300;

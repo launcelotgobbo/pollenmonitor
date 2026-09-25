@@ -325,16 +325,18 @@ export async function upsertWeatherDaily(row: {
      )
      ON CONFLICT (city_slug, date, source) DO UPDATE SET
        tz = COALESCE(EXCLUDED.tz, weather_daily.tz),
-       temp_min_c = EXCLUDED.temp_min_c,
-       temp_max_c = EXCLUDED.temp_max_c,
-       temp_day_c = EXCLUDED.temp_day_c,
-       feels_like_day_c = EXCLUDED.feels_like_day_c,
-       humidity = EXCLUDED.humidity,
-       pressure_hpa = EXCLUDED.pressure_hpa,
-       wind_speed_ms = EXCLUDED.wind_speed_ms,
-       wind_deg = EXCLUDED.wind_deg,
-       clouds_pct = EXCLUDED.clouds_pct,
-       precip_mm = EXCLUDED.precip_mm,
+       -- Summary columns keep their previous value when a re-run only had AQI
+       -- (daily summary unavailable); a later successful summary still wins.
+       temp_min_c = COALESCE(EXCLUDED.temp_min_c, weather_daily.temp_min_c),
+       temp_max_c = COALESCE(EXCLUDED.temp_max_c, weather_daily.temp_max_c),
+       temp_day_c = COALESCE(EXCLUDED.temp_day_c, weather_daily.temp_day_c),
+       feels_like_day_c = COALESCE(EXCLUDED.feels_like_day_c, weather_daily.feels_like_day_c),
+       humidity = COALESCE(EXCLUDED.humidity, weather_daily.humidity),
+       pressure_hpa = COALESCE(EXCLUDED.pressure_hpa, weather_daily.pressure_hpa),
+       wind_speed_ms = COALESCE(EXCLUDED.wind_speed_ms, weather_daily.wind_speed_ms),
+       wind_deg = COALESCE(EXCLUDED.wind_deg, weather_daily.wind_deg),
+       clouds_pct = COALESCE(EXCLUDED.clouds_pct, weather_daily.clouds_pct),
+       precip_mm = COALESCE(EXCLUDED.precip_mm, weather_daily.precip_mm),
        uvi = COALESCE(EXCLUDED.uvi, weather_daily.uvi),
        weather_main = COALESCE(EXCLUDED.weather_main, weather_daily.weather_main),
        weather_desc = COALESCE(EXCLUDED.weather_desc, weather_daily.weather_desc),

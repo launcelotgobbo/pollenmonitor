@@ -31,6 +31,45 @@ export default function ChangelogPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
             September 24, 2026
           </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.4.0</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Added</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Six cities that previously shared a slug are now distinct:{' '}
+              <code>columbus-ga</code>, <code>kansas-city-ks</code>,{' '}
+              <code>arlington-va</code>, <code>aurora-il</code>,{' '}
+              <code>glendale-ca</code>, and <code>springfield-ma</code>. The
+              larger city of each pair keeps its original slug.
+            </li>
+          </ul>
+          <h3 className="font-semibold text-slate-900">Changed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              City names for the disambiguated pairs now include the state, for
+              example <code>Columbus, OH</code>.
+            </li>
+            <li>
+              Weather ingestion stores air-quality rows even when the OpenWeather
+              daily summary is unavailable, and records the summary failure.
+            </li>
+          </ul>
+          <h3 className="font-semibold text-slate-900">Removed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              <code>honolulu</code> is no longer a supported city; the provider
+              has never returned pollen data for it.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            September 24, 2026
+          </p>
           <h2 className="mt-1 text-2xl font-semibold">2.3.1</h2>
         </div>
         <div className="space-y-3 text-sm leading-6 text-slate-600">
