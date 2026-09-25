@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
       error: failure.error,
       cause: error instanceof Error ? error.message : String(error),
     });
-    await logIngest('failure', failure);
+    await logIngest('manual-ingest', 'failure', failure);
     return Response.json(failure, { status: 500 });
   }
 

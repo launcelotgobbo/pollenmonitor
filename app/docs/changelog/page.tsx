@@ -31,6 +31,26 @@ export default function ChangelogPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
             September 24, 2026
           </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.5.0</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Added</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              <code>GET /api/health</code> reports database reachability and
+              the freshness of the daily ingest, pollen observations, and
+              weather rows. It returns <code>200</code> when every check passes
+              and <code>503</code> otherwise, for uptime monitors and agents.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            September 24, 2026
+          </p>
           <h2 className="mt-1 text-2xl font-semibold">2.4.0</h2>
         </div>
         <div className="space-y-3 text-sm leading-6 text-slate-600">

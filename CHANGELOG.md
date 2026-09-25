@@ -1,5 +1,13 @@
 # API Changelog
 
+## 2.5.0 — 2026-09-24
+
+### Added
+
+- `GET /api/health` reports database reachability and the freshness of the
+  daily ingest, pollen observations, and weather rows. It returns `200` when
+  every check passes and `503` otherwise, for uptime monitors and agents.
+
 ## 2.4.0 — 2026-09-24
 
 ### Added

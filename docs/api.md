@@ -1,6 +1,6 @@
 # Pollen Monitor API
 
-Version 2.4.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
+Version 2.5.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
 
 The endpoints do not require authentication and send `Access-Control-Allow-Origin: *`
 so browser applications can read them cross-origin. Successful public data
@@ -353,6 +353,31 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver
 ```
 
 `quotaExhausted: true` appears when the daily provider budget blocked a refresh; `rows` may then be stale or empty.
+
+## `GET /api/health`
+
+Freshness check for monitors and agents. Returns `200` when the database answers and the daily ingest, pollen observations, and weather rows are all within their expected windows; `503` otherwise, with the same body and `ok: false`. When the database is unreachable, `status` is `unavailable` and the data checks are `null`. Responses are never cached.
+
+```http
+GET ${NEXT_PUBLIC_BASE_URL}/api/health
+```
+
+```json
+{
+  "ok": true,
+  "status": "ok",
+  "version": "2.5.0",
+  "ts": "2026-09-24T15:04:05.000Z",
+  "checks": {
+    "database": { "ok": true, "latencyMs": 42 },
+    "dailyIngest": { "ok": true, "lastRunAt": "2026-09-24T08:00:11Z", "status": "success", "ageHours": 7.1, "maxAgeHours": 26, "wrote": 174, "failed": 0 },
+    "pollen": { "ok": true, "latestObservationAt": "2026-09-24T07:00:00Z", "ageHours": 8.1, "maxAgeHours": 30, "citiesReporting": 174 },
+    "weather": { "ok": true, "latestDate": "2026-09-24", "ageDays": 0, "maxAgeDays": 2, "summaryCoverage": 1 }
+  }
+}
+```
+
+`summaryCoverage` is the share of the latest weather day that has One Call summary fields (temperature, wind, and so on); air quality is present regardless.
 
 ---
 

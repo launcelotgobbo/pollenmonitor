@@ -60,7 +60,9 @@
 - Cron (Vercel): daily ingest at 1:00 AM `America/Los_Angeles` (DST-aware). `vercel.json` invokes at 08:00 and 09:00 UTC; the route skips whichever invocation is not 1:00 AM Pacific.
   - Auth: set `CRON_SECRET` in every environment so Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual triggers use a header, never a query string: `curl -H "x-ingest-token: $INGEST_TOKEN" ".../api/cron/daily-ingest"`.
   - Logs: Each run is recorded in `ingest_logs` with counts + duration. Stack traces stay in function logs and are not persisted.
-- Inspect runs: `curl -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest-logs"` (operator-only, not a public endpoint).
+- Inspect runs: `curl -H "x-ingest-token: $INGEST_TOKEN" "http://localhost:3000/api/ingest-logs"` (operator-only, not a public endpoint). Filters: `?job=daily-ingest|manual-ingest`, `?status=success|partial|failure`, `?limit=1..200`.
+- Health: `GET /api/health` (public, no auth) returns 200 when the DB answers and the daily ingest, pollen, and weather data are fresh, 503 otherwise. Point uptime monitors / Vercel alerts at it.
+- Retention: the daily cron prunes `pollen_forecast_hourly` older than 7 days and `ambee_usage_logs` / `ingest_logs` older than 90 days after each run (`pruneOperationalData` in `lib/db.ts`). `pollen_readings_hourly` and `weather_daily` are kept indefinitely.
 - Local git hook: run `npm run setup:hooks` once to enforce `npm run build` on each commit (set `SKIP_PRECOMMIT_BUILD=1` to bypass when needed).
 
 ## Cron & Logging

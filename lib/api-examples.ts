@@ -254,4 +254,68 @@ export const API_EXAMPLES = {
   serviceError: {
     error: 'Unable to load data',
   },
+  health: {
+    ok: true,
+    status: 'ok',
+    version: '2.5.0',
+    ts: '2026-09-24T15:04:05.000Z',
+    checks: {
+      database: { ok: true, latencyMs: 42 },
+      dailyIngest: {
+        ok: true,
+        lastRunAt: '2026-09-24T08:00:11Z',
+        status: 'success',
+        ageHours: 7.1,
+        maxAgeHours: 26,
+        wrote: 174,
+        failed: 0,
+      },
+      pollen: {
+        ok: true,
+        latestObservationAt: '2026-09-24T07:00:00Z',
+        ageHours: 8.1,
+        maxAgeHours: 30,
+        citiesReporting: 174,
+      },
+      weather: {
+        ok: true,
+        latestDate: '2026-09-24',
+        ageDays: 0,
+        maxAgeDays: 2,
+        summaryCoverage: 1,
+      },
+    },
+  },
+  healthDegraded: {
+    ok: false,
+    status: 'degraded',
+    version: '2.5.0',
+    ts: '2026-09-26T15:04:05.000Z',
+    checks: {
+      database: { ok: true, latencyMs: 38 },
+      dailyIngest: {
+        ok: false,
+        lastRunAt: '2026-09-24T08:00:11Z',
+        status: 'success',
+        ageHours: 55.1,
+        maxAgeHours: 26,
+        wrote: 174,
+        failed: 0,
+      },
+      pollen: {
+        ok: false,
+        latestObservationAt: '2026-09-24T07:00:00Z',
+        ageHours: 56.1,
+        maxAgeHours: 30,
+        citiesReporting: 0,
+      },
+      weather: {
+        ok: true,
+        latestDate: '2026-09-24',
+        ageDays: 2,
+        maxAgeDays: 2,
+        summaryCoverage: 0,
+      },
+    },
+  },
 } as const;
