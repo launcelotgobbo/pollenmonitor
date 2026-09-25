@@ -51,6 +51,7 @@ test('repository migrations apply cleanly, are recorded, and are idempotent', { 
       [
         'ambee_usage_logs',
         'ingest_logs',
+        'pollen_daily',
         'pollen_forecast_hourly',
         'pollen_readings_hourly',
         'schema_migrations',

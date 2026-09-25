@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:backfill-pollen-daily": "tsx scripts/backfill-pollen-daily.ts",
     "test": "tsx --test tests/**/*.test.ts",
     "test:db": "tsx --test --test-concurrency=1 tests/integration/*.dbtest.ts",
     "setup:hooks": "git config core.hooksPath .githooks"

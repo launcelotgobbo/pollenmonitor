@@ -24,8 +24,7 @@ export async function GET(req: NextRequest) {
       // Resolve server-side so the map can render without first fetching the
       // date list; capped at today to ignore any future-dated rows.
       const { rows: latest } = await query<{ d: string | null }>(
-        `SELECT least((max(ts) AT TIME ZONE 'UTC')::date, (now() AT TIME ZONE 'UTC')::date)::text AS d
-         FROM pollen_readings_hourly`,
+        `SELECT least(max(date), (now() AT TIME ZONE 'UTC')::date)::text AS d FROM pollen_daily`,
       );
       date = latest[0]?.d || new Date().toISOString().slice(0, 10);
     }
@@ -36,20 +35,20 @@ export async function GET(req: NextRequest) {
     windowEnd.setUTCDate(windowEnd.getUTCDate() + 3);
     const dayEnd = windowEnd.toISOString();
 
-    // Aggregate to one row per city/day in SQL; the previous version shipped
-    // every hourly row (~3k rows, ~500KB) out of the DB per request.
+    // The map shows each day's peaks, which pollen_daily already holds; the
+    // per-species peaks only need one pass over each day's peak_species object.
     const { rows } = await query<DailyCityRow>(
       `SELECT city_slug,
-              ((ts AT TIME ZONE 'UTC')::date)::text AS date,
-              max(reading.tree) AS tree,
-              max(reading.grass) AS grass,
-              max(reading.weed) AS weed,
-              max(species_max.tree) AS max_species_tree,
-              max(species_max.grass) AS max_species_grass,
-              max(species_max.weed) AS max_species_weed,
-              max(species_max.ragweed) AS ragweed,
-              min(reading.tz) AS tz
-       FROM pollen_readings_hourly AS reading
+              date::text AS date,
+              peak_tree AS tree,
+              peak_grass AS grass,
+              peak_weed AS weed,
+              species_max.tree AS max_species_tree,
+              species_max.grass AS max_species_grass,
+              species_max.weed AS max_species_weed,
+              species_max.ragweed AS ragweed,
+              tz
+       FROM pollen_daily AS daily
        LEFT JOIN LATERAL (
          SELECT (max(item.value::numeric) FILTER (WHERE lower(category.key) = 'tree'))::float8 AS tree,
                 (max(item.value::numeric) FILTER (WHERE lower(category.key) = 'grass'))::float8 AS grass,
@@ -57,12 +56,11 @@ export async function GET(req: NextRequest) {
                 (max(item.value::numeric) FILTER (
                   WHERE lower(category.key) = 'weed' AND lower(item.key) = 'ragweed'
                 ))::float8 AS ragweed
-         FROM ${numericSpeciesEntriesSql('reading.species')}
+         FROM ${numericSpeciesEntriesSql('daily.peak_species')}
        ) AS species_max ON true
-       WHERE reading.ts >= $1 AND reading.ts < $2
-       GROUP BY 1, 2
+       WHERE date >= $1::date AND date < $2::date
        ORDER BY 1, 2`,
-      [dayStart, dayEnd],
+      [dayStart.slice(0, 10), dayEnd.slice(0, 10)],
     );
 
     const cities = await loadTopCities();

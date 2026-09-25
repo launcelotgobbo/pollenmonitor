@@ -1,5 +1,17 @@
 # API Changelog
 
+## 2.5.1 — 2026-09-25
+
+### Changed
+
+- Daily endpoints (`/api/pollen?city=`, `/api/map-data`,
+  `/api/city-type-matrix`, `/api/pollen-range?aggregate=day`,
+  `/api/available-dates`) are served from a per-day summary that the ingest
+  job maintains, instead of aggregating hourly rows on every request. Values
+  are unchanged.
+- `aggregate=day` now returns every whole UTC day that overlaps `[from, to)`;
+  a timestamp bound inside a day no longer produces a partial-day average.
+
 ## 2.5.0 — 2026-09-24
 
 ### Added
