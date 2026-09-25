@@ -6,7 +6,7 @@ import type { HealthReport } from '@/lib/health';
 const healthy: HealthReport = {
   ok: true,
   status: 'ok',
-  version: '2.5.0',
+  version: '2.5.1',
   ts: '2026-09-24T15:00:00Z',
   checks: {
     database: { ok: true, latencyMs: 4 },
@@ -76,7 +76,7 @@ test('describeFreshness reports an unavailable database as down', () => {
   const unavailable: HealthReport = {
     ok: false,
     status: 'unavailable',
-    version: '2.5.0',
+    version: '2.5.1',
     ts: '2026-09-24T15:00:00Z',
     checks: {
       database: { ok: false, latencyMs: 10_000, error: 'connection' },

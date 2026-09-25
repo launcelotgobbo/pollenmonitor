@@ -1,6 +1,6 @@
 # Pollen Monitor API
 
-Version 2.5.0 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
+Version 2.5.1 exposes public, read-only endpoints for pollen, species, forecasts, map data, weather, and air quality. All endpoints return JSON and live under the same origin as the app (for example `${NEXT_PUBLIC_BASE_URL}`, which defaults to `https://pollenmonitor.dev`). For MCP integration notes see [mcp-server.md](./mcp-server.md), and see [`CHANGELOG.md`](../CHANGELOG.md) for breaking changes.
 
 The endpoints do not require authentication and send `Access-Control-Allow-Origin: *`
 so browser applications can read them cross-origin. Successful public data
@@ -165,7 +165,7 @@ Query data over arbitrary date windows. Supports hourly data (`aggregate=none`, 
 | `from`      | ✅       | Start (inclusive). Accepts `YYYY-MM-DD` or RFC 3339.                     |
 | `to`        | ✅       | End (exclusive). Must be after `from`.                                   |
 | `city`      | ❌       | Comma-separated city slugs.                                              |
-| `aggregate` | ❌       | `none` or `day`; other values return `400`.                              |
+| `aggregate` | ❌       | `none` or `day`; other values return `400`. `day` returns every whole UTC day that overlaps `[from, to)`, so a timestamp bound inside a day includes that entire day. |
 | `limit`     | ❌       | Integer row cap (1–50 000, default 20 000); invalid values return `400`. |
 
 ### Hourly example
@@ -366,7 +366,7 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/health
 {
   "ok": true,
   "status": "ok",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "ts": "2026-09-24T15:04:05.000Z",
   "checks": {
     "database": { "ok": true, "latencyMs": 42 },

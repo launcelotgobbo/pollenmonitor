@@ -33,6 +33,7 @@ export const MIGRATIONS_DIR = path.resolve(process.cwd(), 'migrations');
 
 export const APP_TABLES = [
   'pollen_readings_hourly',
+  'pollen_daily',
   'pollen_forecast_hourly',
   'weather_daily',
   'ingest_logs',

@@ -177,8 +177,20 @@ test('daily ingest writes pollen, weather, logs, and usage, and health turns gre
     assert.ok(hourly.every((row) => row.ts.endsWith('Z') && typeof row.risk_tree === 'string'));
     assert.ok(hourly.every((row) => (row.tree ?? 0) >= 100), 'Denver rows carry the +100 tree offset');
 
+    // Daily rows are read from pollen_daily, which the run must have refreshed.
+    assert.equal(result.pollenDaily.ok, true);
+    assert.equal(result.pollenDaily.from, fromISO.slice(0, 10));
+    const { rows: summaryCounts } = await query<{ city_slug: string; n: string; readings: string }>(
+      `SELECT city_slug, count(*)::text AS n, sum(readings)::text AS readings FROM pollen_daily GROUP BY 1 ORDER BY 1`,
+    );
+    assert.deepEqual(summaryCounts, [
+      { city_slug: 'boston', n: String(result.pollenDaily.rows / 2), readings: String(expectedHours) },
+      { city_slug: 'denver', n: String(result.pollenDaily.rows / 2), readings: String(expectedHours) },
+    ]);
+
     const daily = await getDailyPollenRows('denver');
     assert.ok(daily.length >= 2, 'a 42 h window spans at least two UTC days');
+    assert.equal(daily.length, result.pollenDaily.rows / 2);
     const latest = daily[0];
     assert.equal(latest.date, today);
     assert.equal(latest.grass, 2);
@@ -259,6 +271,8 @@ test('a single failing city yields a partial run with a 207', { skip }, async ()
     assert.equal(result.ambeeCalls, 4, 'Denver: 3 attempts on 500; Boston: 1');
     const { rows } = await query<{ city_slug: string }>(`SELECT DISTINCT city_slug FROM pollen_readings_hourly`);
     assert.deepEqual(rows, [{ city_slug: 'boston' }]);
+    const { rows: summary } = await query<{ city_slug: string }>(`SELECT DISTINCT city_slug FROM pollen_daily`);
+    assert.deepEqual(summary, [{ city_slug: 'boston' }], 'the summary only covers cities that were written');
     const { rows: logs } = await query<{ job: string; status: string }>(`SELECT job, status FROM ingest_logs`);
     assert.deepEqual(logs, [{ job: 'manual-ingest', status: 'partial' }]);
   } finally {
@@ -266,20 +280,45 @@ test('a single failing city yields a partial run with a 207', { skip }, async ()
   }
 });
 
+test('a failed daily summary refresh downgrades an otherwise clean run to partial', { skip }, async () => {
+  const providers = stubProviders();
+  await query(`ALTER TABLE pollen_daily RENAME TO pollen_daily_missing`);
+  try {
+    const { fromISO, toISO } = ingestWindow();
+    const { result, httpStatus } = await withProviderEnv(() =>
+      runIngestJob({ job: 'daily-ingest', logLabel: '[test]', jobId: 'job-3b', cities, fromISO, toISO, includeWeather: false }),
+    );
+    assert.equal(httpStatus, 207);
+    assert.equal(result.status, 'partial');
+    assert.equal(result.wrote, 2, 'hourly rows still landed');
+    assert.equal(result.pollenDaily.ok, false);
+    assert.match(result.pollenDaily.error, /Database query failed/);
+
+    const { rows: logs } = await query<{ status: string; details: any }>(`SELECT status, details FROM ingest_logs`);
+    assert.equal(logs[0].status, 'partial');
+    assert.equal(logs[0].details.pollenDaily.ok, false);
+  } finally {
+    providers.restore();
+    await query(`ALTER TABLE pollen_daily_missing RENAME TO pollen_daily`);
+  }
+});
+
 test('dry runs touch neither data tables nor usage logs beyond the run record', { skip }, async () => {
   const providers = stubProviders();
   try {
     const { fromISO, toISO } = ingestWindow();
-    await withProviderEnv(() =>
+    const { result } = await withProviderEnv(() =>
       runIngestJob({ job: 'manual-ingest', logLabel: '[test]', jobId: 'job-4', cities, fromISO, toISO, dryRun: true }),
     );
-    const { rows } = await query<{ pollen: string; weather: string; usage: string; logs: string }>(
+    assert.equal(result.pollenDaily, null);
+    const { rows } = await query<{ pollen: string; daily: string; weather: string; usage: string; logs: string }>(
       `SELECT (SELECT count(*) FROM pollen_readings_hourly)::text AS pollen,
+              (SELECT count(*) FROM pollen_daily)::text AS daily,
               (SELECT count(*) FROM weather_daily)::text AS weather,
               (SELECT count(*) FROM ambee_usage_logs)::text AS usage,
               (SELECT count(*) FROM ingest_logs)::text AS logs`,
     );
-    assert.deepEqual(rows[0], { pollen: '0', weather: '0', usage: '2', logs: '1' });
+    assert.deepEqual(rows[0], { pollen: '0', daily: '0', weather: '0', usage: '2', logs: '1' });
   } finally {
     providers.restore();
   }

@@ -10,7 +10,7 @@ import {
   unsupportedCityResponse,
   UnsupportedCityError,
 } from '@/lib/cities';
-import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
+import { query, TS_ISO } from '@/lib/db';
 import {
   PollenRangeDbRow,
   ValidationError,
@@ -52,52 +52,16 @@ export async function GET(req: NextRequest) {
       aggregate === 'day'
         ? (
             await query<PollenRangeDbRow>(
-              `WITH filtered AS MATERIALIZED (
-                 SELECT city_slug, tree, grass, weed, tz, species,
-                        (ts AT TIME ZONE 'UTC')::date AS day
-                 FROM pollen_readings_hourly
-                 WHERE ts >= $1 AND ts < $2 ${cityFilter}
-               ),
-               daily AS (
-                 SELECT city_slug, day,
-                        round(avg(tree))::int AS tree,
-                        round(avg(grass))::int AS grass,
-                        round(avg(weed))::int AS weed,
-                        round(avg(CASE
-                          WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
-                          ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
-                        END))::int AS total,
-                        max(tz) AS timezone
-                 FROM filtered
-                 GROUP BY city_slug, day
-               ),
-               species_values AS (
-                 SELECT filtered.city_slug, filtered.day,
-                        category.key AS category,
-                        item.key AS species_name,
-                        round(avg(item.value::numeric))::int AS value
-                 FROM filtered
-                 CROSS JOIN LATERAL ${numericSpeciesEntriesSql('filtered.species')}
-                 GROUP BY 1, 2, 3, 4
-               ),
-               species_categories AS (
-                 SELECT city_slug, day, category,
-                        jsonb_object_agg(species_name, value) AS values
-                 FROM species_values
-                 GROUP BY 1, 2, 3
-               ),
-               daily_species AS (
-                 SELECT city_slug, day, jsonb_object_agg(category, values) AS species
-                 FROM species_categories
-                 GROUP BY 1, 2
-               )
-               SELECT daily.city_slug,
-                      to_char(daily.day::timestamp, 'YYYY-MM-DD"T"00:00:00.000"Z"') AS period_start,
-                      daily.tree, daily.grass, daily.weed, daily.total, daily.timezone,
-                      daily_species.species
-               FROM daily
-               LEFT JOIN daily_species USING (city_slug, day)
-               ORDER BY daily.day ASC, daily.city_slug ASC
+              // Whole UTC days that intersect [from, to): the last day is the
+              // one containing the final instant before `to`.
+              `SELECT city_slug,
+                      to_char(date::timestamp, 'YYYY-MM-DD"T"00:00:00.000"Z"') AS period_start,
+                      tree, grass, weed, total, tz AS timezone, species
+               FROM pollen_daily
+               WHERE date >= ($1::timestamptz AT TIME ZONE 'UTC')::date
+                 AND date <= (($2::timestamptz - interval '1 microsecond') AT TIME ZONE 'UTC')::date
+                 ${cityFilter}
+               ORDER BY date ASC, city_slug ASC
                LIMIT ${limitPlaceholder}`,
               params,
             )

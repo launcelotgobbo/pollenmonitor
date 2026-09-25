@@ -1,4 +1,4 @@
-import { numericSpeciesEntriesSql, query, TS_ISO } from '@/lib/db';
+import { query, TS_ISO } from '@/lib/db';
 import { utcDayWindow } from '@/lib/date';
 import type { DailyPollenHistoryRow, DailyPollenRow, HourlyPollenRow } from '@/lib/pollen-types';
 import { withNabRisk } from '@/lib/risk';
@@ -51,75 +51,17 @@ export async function getHourlyPollenRows(city: string, date: string): Promise<H
   );
 }
 
+// Daily rows come from pollen_daily, which the ingest job refreshes for every
+// day it writes (lib/pollen-daily.ts).
 async function queryDailyPollenRows(city: string, limit: number): Promise<DailyPollenRow[]> {
   const { rows } = await query<DailyPollenDbRow>(
-    `WITH recent_days AS MATERIALIZED (
-       SELECT (ts AT TIME ZONE 'UTC')::date AS day
-       FROM pollen_readings_hourly
-       WHERE city_slug = $1
-       GROUP BY 1
-       ORDER BY 1 DESC
-       LIMIT $2
-     ),
-     filtered AS MATERIALIZED (
-       SELECT reading.ts, reading.tree, reading.grass, reading.weed, reading.tz, reading.species,
-              (reading.ts AT TIME ZONE 'UTC')::date AS day
-       FROM pollen_readings_hourly AS reading
-       WHERE reading.city_slug = $1
-         AND reading.ts >= (
-           SELECT min(day)::timestamp AT TIME ZONE 'UTC'
-           FROM recent_days
-         )
-     ),
-     daily AS (
-       SELECT day::text AS date,
-            round(avg(tree))::int AS tree,
-            round(avg(grass))::int AS grass,
-            round(avg(weed))::int AS weed,
-            round(avg(CASE
-              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
-              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
-            END))::int AS total,
-            max(tree)::int AS peak_tree,
-            max(grass)::int AS peak_grass,
-            max(weed)::int AS peak_weed,
-            max(CASE
-              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
-              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
-            END)::int AS peak_total,
-            max(tz) AS timezone
-       FROM filtered
-       GROUP BY 1
-     ),
-     species_values AS (
-       SELECT filtered.day::text AS date,
-              category.key AS category,
-              item.key AS species_name,
-              round(avg(item.value::numeric))::int AS value,
-              max(item.value::numeric)::int AS peak_value
-       FROM filtered
-       CROSS JOIN LATERAL ${numericSpeciesEntriesSql('filtered.species')}
-       GROUP BY 1, 2, 3
-     ),
-     species_categories AS (
-       SELECT date,
-              category,
-              jsonb_object_agg(species_name, value) AS values,
-              jsonb_object_agg(species_name, peak_value) AS peak_values
-       FROM species_values
-       GROUP BY 1, 2
-     ),
-     daily_species AS (
-       SELECT date,
-              jsonb_object_agg(category, values) AS species,
-              jsonb_object_agg(category, peak_values) AS peak_species
-       FROM species_categories
-       GROUP BY 1
-     )
-     SELECT daily.*, daily_species.species, daily_species.peak_species
-     FROM daily
-     LEFT JOIN daily_species USING (date)
-     ORDER BY date DESC`,
+    `SELECT date::text AS date, tree, grass, weed, total,
+            peak_tree, peak_grass, peak_weed, peak_total,
+            tz AS timezone, species, peak_species
+     FROM pollen_daily
+     WHERE city_slug = $1
+     ORDER BY date DESC
+     LIMIT $2`,
     [city, limit],
   );
 
@@ -139,25 +81,11 @@ export async function getCompleteDailyPollenHistory(
   city: string,
 ): Promise<DailyPollenHistoryRow[]> {
   const { rows } = await query<DailyPollenHistoryRow>(
-    `SELECT (ts AT TIME ZONE 'UTC')::date::text AS date,
-            round(avg(tree))::int AS tree,
-            round(avg(grass))::int AS grass,
-            round(avg(weed))::int AS weed,
-            round(avg(CASE
-              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
-              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
-            END))::int AS total,
-            max(tree)::int AS peak_tree,
-            max(grass)::int AS peak_grass,
-            max(weed)::int AS peak_weed,
-            max(CASE
-              WHEN tree IS NULL AND grass IS NULL AND weed IS NULL THEN NULL
-              ELSE coalesce(tree, 0) + coalesce(grass, 0) + coalesce(weed, 0)
-            END)::int AS peak_total
-     FROM pollen_readings_hourly
+    `SELECT date::text AS date, tree, grass, weed, total,
+            peak_tree, peak_grass, peak_weed, peak_total
+     FROM pollen_daily
      WHERE city_slug = $1
-     GROUP BY 1
-     ORDER BY 1 DESC`,
+     ORDER BY date DESC`,
     [city],
   );
   return rows;

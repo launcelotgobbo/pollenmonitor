@@ -29,6 +29,33 @@ export default function ChangelogPage() {
       <section className="space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+            September 25, 2026
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">2.5.1</h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-slate-600">
+          <h3 className="font-semibold text-slate-900">Changed</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Daily endpoints (<code>/api/pollen?city=</code>,{' '}
+              <code>/api/map-data</code>, <code>/api/city-type-matrix</code>,{' '}
+              <code>/api/pollen-range?aggregate=day</code>, and{' '}
+              <code>/api/available-dates</code>) are served from a per-day
+              summary that the ingest job maintains, instead of aggregating
+              hourly rows on every request. Values are unchanged.
+            </li>
+            <li>
+              <code>aggregate=day</code> now returns every whole UTC day that
+              overlaps <code>[from, to)</code>; a timestamp bound inside a day
+              no longer produces a partial-day average.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="space-y-4 border-t border-slate-200 pt-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
             September 24, 2026
           </p>
           <h2 className="mt-1 text-2xl font-semibold">2.5.0</h2>

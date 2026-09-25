@@ -257,7 +257,7 @@ export const API_EXAMPLES = {
   health: {
     ok: true,
     status: 'ok',
-    version: '2.5.0',
+    version: '2.5.1',
     ts: '2026-09-24T15:04:05.000Z',
     checks: {
       database: { ok: true, latencyMs: 42 },
@@ -289,7 +289,7 @@ export const API_EXAMPLES = {
   healthDegraded: {
     ok: false,
     status: 'degraded',
-    version: '2.5.0',
+    version: '2.5.1',
     ts: '2026-09-26T15:04:05.000Z',
     checks: {
       database: { ok: true, latencyMs: 38 },

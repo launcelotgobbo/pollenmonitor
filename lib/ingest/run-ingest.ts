@@ -2,7 +2,17 @@ import { logIngest, logProviderUsage } from '@/lib/db';
 import type { City } from '@/lib/ingest/cities';
 import { ingestHourlyForCities } from '@/lib/ingest/hourly-ingest';
 import { ingestWeatherForCities, type WeatherIngestSummary, type CityWeatherResult } from '@/lib/ingest/weather-daily';
+import { refreshPollenDaily } from '@/lib/pollen-daily';
 import { ambeeDailyQuota, openweatherDailyQuota } from '@/lib/provider-quota';
+
+export type PollenDailyRefreshResult = {
+  ok: boolean;
+  from?: string;
+  to?: string;
+  rows: number;
+  ms: number;
+  error?: string;
+};
 
 export type IngestJobOptions = {
   job: string;
@@ -55,6 +65,30 @@ export async function runIngestJob({
     },
   });
 
+  // Daily readers serve pollen_daily, so the days this run wrote must be
+  // recomputed before the run can count as a success.
+  let pollenDaily: PollenDailyRefreshResult | null = null;
+  if (!dryRun && summary.wrote > 0) {
+    const started = Date.now();
+    try {
+      const refreshed = await refreshPollenDaily({
+        from: fromISO,
+        to: toISO,
+        cities: cities.map((c) => c.slug),
+      });
+      pollenDaily = { ok: true, ...refreshed, ms: Date.now() - started };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pollenDaily = { ok: false, rows: 0, ms: Date.now() - started, error: message };
+      console.error(`${logLabel} daily summary refresh failed`, {
+        level: 'error',
+        job,
+        jobId,
+        message,
+      });
+    }
+  }
+
   let weatherSummary: WeatherIngestSummary | null = null;
   let weatherResults: CityWeatherResult[] = [];
   if (includeWeather) {
@@ -100,9 +134,10 @@ export async function runIngestJob({
   }
 
   const weatherOk = weatherSummary?.ok ?? true;
+  const pollenDailyOk = pollenDaily?.ok ?? true;
   const weatherAllFailed = !includeWeather || (weatherSummary ? weatherSummary.failed === cities.length : true);
   const status =
-    summary.ok && weatherOk
+    summary.ok && weatherOk && pollenDailyOk
       ? 'success'
       : summary.failed === cities.length && weatherAllFailed
         ? 'failure'
@@ -116,6 +151,7 @@ export async function runIngestJob({
     // Stacks stay in the per-city console logs above; persisting them would put
     // server file paths into ingest_logs rows.
     cityResults: cityResults.map(({ stack, ...rest }) => rest),
+    pollenDaily,
     weather: weatherSummary
       ? { summary: weatherSummary, cityResults: weatherResults.map(({ stack, ...rest }) => rest) }
       : null,
@@ -168,6 +204,7 @@ export async function runIngestJob({
     });
   }
 
-  const httpStatus = summary.ok ? 200 : summary.failed === cities.length ? 500 : 207;
+  const httpStatus =
+    summary.ok && pollenDailyOk ? 200 : summary.failed === cities.length ? 500 : 207;
   return { result, httpStatus };
 }

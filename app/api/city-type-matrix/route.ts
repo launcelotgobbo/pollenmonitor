@@ -22,45 +22,33 @@ export async function GET(req: NextRequest) {
 
   try {
     const city = (await resolveCity(cityParam)).slug;
-    const { rows: baseRows } = await query<{ date: string }>(
-      `SELECT DISTINCT (ts AT TIME ZONE 'UTC')::date::text AS date
-       FROM pollen_readings_hourly
+    // The newest `days` dates anchor the rows; the two days after the newest
+    // are fetched too so day1/day2 can be filled for it.
+    const { rows: dailyRows } = await query<{
+      date: string;
+      tree: number | null;
+      grass: number | null;
+      weed: number | null;
+      anchor: boolean;
+    }>(
+      `WITH anchors AS (
+         SELECT date FROM pollen_daily WHERE city_slug = $1 ORDER BY date DESC LIMIT $2
+       )
+       SELECT date::text AS date, peak_tree AS tree, peak_grass AS grass, peak_weed AS weed,
+              date IN (SELECT date FROM anchors) AS anchor
+       FROM pollen_daily
        WHERE city_slug = $1
-       ORDER BY date DESC
-       LIMIT $2`,
+         AND date >= (SELECT min(date) FROM anchors)
+         AND date < (SELECT max(date) FROM anchors) + 3
+       ORDER BY date DESC`,
       [city, days],
     );
-    const baseDates = baseRows.map((r) => r.date);
+    const baseDates = dailyRows.filter((r) => r.anchor).map((r) => r.date);
     if (baseDates.length === 0) return publicDataResponse({ city, rows: [] });
 
-    const earliest = baseDates[baseDates.length - 1];
-    const latest = baseDates[0];
-    const fromDate = new Date(`${earliest}T00:00:00Z`);
-    const toDate = new Date(`${addDays(latest, 3)}T00:00:00Z`);
-
-    const { rows: hourly } = await query<{ ts: string; grass: number | null; tree: number | null; weed: number | null }>(
-      `SELECT (ts AT TIME ZONE 'UTC')::text AS ts, grass, tree, weed
-       FROM pollen_readings_hourly
-       WHERE city_slug = $1 AND ts >= $2 AND ts < $3`,
-      [city, fromDate.toISOString(), toDate.toISOString()],
+    const aggregate = new Map(
+      dailyRows.map(({ date, tree, grass, weed }) => [date, { tree, grass, weed }]),
     );
-
-    const aggregate = new Map<string, { tree: number | null; grass: number | null; weed: number | null }>();
-    const bump = (current: number | null | undefined, value: number | null | undefined) => {
-      if (value === null || value === undefined) return current ?? null;
-      if (current === null || current === undefined) return value;
-      return Math.max(current, value);
-    };
-
-    for (const row of hourly) {
-      const date = row.ts?.slice(0, 10);
-      if (!date) continue;
-      const existing = aggregate.get(date) || { tree: null, grass: null, weed: null };
-      existing.tree = bump(existing.tree, row.tree);
-      existing.grass = bump(existing.grass, row.grass);
-      existing.weed = bump(existing.weed, row.weed);
-      aggregate.set(date, existing);
-    }
 
     const rows = baseDates.map((d) => {
       const day0 = aggregate.get(d) || { tree: null, grass: null, weed: null };

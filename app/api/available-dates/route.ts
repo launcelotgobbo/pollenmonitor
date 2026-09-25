@@ -4,27 +4,12 @@ import { query } from '@/lib/db';
 
 export async function GET(_req: NextRequest) {
   try {
-    // Probe each candidate day via the ts index instead of DISTINCT-scanning
-    // the whole table (1M+ rows), which took ~10s per page load.
+    // Capped at today to ignore any future-dated rows.
     const { rows } = await query<{ date: string }>(
-      `WITH bounds AS (
-         SELECT (min(ts) AT TIME ZONE 'UTC')::date AS min_day,
-                least((max(ts) AT TIME ZONE 'UTC')::date, (now() AT TIME ZONE 'UTC')::date) AS max_day
-         FROM pollen_readings_hourly
-       ),
-       days AS (
-         SELECT generate_series(min_day, max_day, interval '1 day')::date AS day
-         FROM bounds
-         WHERE min_day IS NOT NULL
-       )
-       SELECT day::text AS date
-       FROM days
-       WHERE EXISTS (
-         SELECT 1 FROM pollen_readings_hourly p
-         WHERE p.ts >= day::timestamp AT TIME ZONE 'UTC'
-           AND p.ts < (day + 1)::timestamp AT TIME ZONE 'UTC'
-       )
-       ORDER BY day DESC`,
+      `SELECT DISTINCT date::text AS date
+       FROM pollen_daily
+       WHERE date <= (now() AT TIME ZONE 'UTC')::date
+       ORDER BY 1 DESC`,
     );
     return Response.json(
       { dates: rows.map((r) => r.date) },
