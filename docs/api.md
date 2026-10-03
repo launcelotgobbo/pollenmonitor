@@ -356,7 +356,7 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/forecast?city=denver
 
 ## `GET /api/health`
 
-Freshness check for monitors and agents. Returns `200` when the database answers and the daily ingest, pollen observations, and weather rows are all within their expected windows; `503` otherwise, with the same body and `ok: false`. When the database is unreachable, `status` is `unavailable` and the data checks are `null`. Responses are never cached.
+Freshness and coverage check for monitors and agents. Returns `200` when the database answers, daily pollen ingestion succeeded within 26 hours, and at least 95% of the supported city catalog has fresh pollen and complete weather data. Pollen must be within 30 hours; the latest weather date must be within two days. Returns `503` otherwise, with the same body and `ok: false`. A `running`, `partial`, or `failure` ingest does not pass. When the database is unreachable, `status` is `unavailable` and the data checks are `null`. Responses are never cached.
 
 ```http
 GET ${NEXT_PUBLIC_BASE_URL}/api/health
@@ -372,12 +372,12 @@ GET ${NEXT_PUBLIC_BASE_URL}/api/health
     "database": { "ok": true, "latencyMs": 42 },
     "dailyIngest": { "ok": true, "lastRunAt": "2026-09-24T08:00:11Z", "status": "success", "ageHours": 7.1, "maxAgeHours": 26, "wrote": 174, "failed": 0 },
     "pollen": { "ok": true, "latestObservationAt": "2026-09-24T07:00:00Z", "ageHours": 8.1, "maxAgeHours": 30, "citiesReporting": 174 },
-    "weather": { "ok": true, "latestDate": "2026-09-24", "ageDays": 0, "maxAgeDays": 2, "summaryCoverage": 1 }
+    "weather": { "ok": true, "latestDate": "2026-09-24", "ageDays": 0, "maxAgeDays": 2, "summaryCoverage": 1, "expectedCities": 174, "citiesReporting": 174, "citiesWithSummary": 174, "cityCoverage": 1, "minCoverage": 0.95 }
   }
 }
 ```
 
-`summaryCoverage` is the share of the latest weather day that has One Call daily fields (temperature, wind, and so on); air quality is present regardless.
+`expectedCities` is the supported catalog size. `citiesReporting` counts cities with any row on the latest weather date; `citiesWithSummary` counts those with both a daily temperature summary and AQI. `cityCoverage` and `summaryCoverage` divide these counts by the **full catalog**, not just the cities that returned data. Health uses the unrounded count ratio against `minCoverage`; a rounded value of `0.95` alone does not imply success.
 
 ---
 

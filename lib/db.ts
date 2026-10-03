@@ -1,5 +1,6 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { createPostgresPoolConfig } from '@/lib/postgres-config';
+import type { DailyWeather } from '@/lib/weather/openweather';
 
 const pool = new Pool(createPostgresPoolConfig());
 
@@ -370,39 +371,53 @@ export async function pruneOperationalData({
   };
 }
 
-export async function upsertWeatherDaily(row: {
-  city_slug: string;
-  date: string; // YYYY-MM-DD
-  tz?: string | null;
-  temp_min_c?: number | null;
-  temp_max_c?: number | null;
-  temp_day_c?: number | null;
-  feels_like_day_c?: number | null;
-  humidity?: number | null;
-  pressure_hpa?: number | null;
-  wind_speed_ms?: number | null;
-  wind_deg?: number | null;
-  clouds_pct?: number | null;
-  precip_mm?: number | null;
-  uvi?: number | null;
-  weather_main?: string | null;
-  weather_desc?: string | null;
-  aqi?: number | null;
-  aqi_pm2_5?: number | null;
-  aqi_pm10?: number | null;
-  aqi_o3?: number | null;
-  aqi_no2?: number | null;
-  aqi_so2?: number | null;
-  aqi_co?: number | null;
-}) {
+export type WeatherDailyRow = DailyWeather & { city_slug: string };
+
+export function upsertWeatherDaily(row: WeatherDailyRow) {
+  return upsertWeatherDailyBatch([row]);
+}
+
+// A city's dates are distinct and small (at most a 30-day backfill). One
+// statement commits its whole window before the queue checkpoint is saved.
+export async function upsertWeatherDailyBatch(rows: WeatherDailyRow[]) {
+  if (rows.length === 0) return;
+  const params: unknown[] = [];
+  const tuples = rows.map((row) => {
+    const values = [
+      row.city_slug,
+      row.date,
+      row.tz ?? null,
+      row.temp_min_c ?? null,
+      row.temp_max_c ?? null,
+      row.temp_day_c ?? null,
+      row.feels_like_day_c ?? null,
+      row.humidity ?? null,
+      row.pressure_hpa ?? null,
+      row.wind_speed_ms ?? null,
+      row.wind_deg ?? null,
+      row.clouds_pct ?? null,
+      row.precip_mm ?? null,
+      row.uvi ?? null,
+      row.weather_main ?? null,
+      row.weather_desc ?? null,
+      row.aqi ?? null,
+      row.aqi_pm2_5 ?? null,
+      row.aqi_pm10 ?? null,
+      row.aqi_o3 ?? null,
+      row.aqi_no2 ?? null,
+      row.aqi_so2 ?? null,
+      row.aqi_co ?? null,
+    ];
+    const offset = params.length;
+    params.push(...values);
+    return `(${values.map((_, i) => `$${offset + i + 1}`).join(',')},'openweather')`;
+  });
   await q(
     `INSERT INTO weather_daily (
        city_slug, date, tz, temp_min_c, temp_max_c, temp_day_c, feels_like_day_c, humidity, pressure_hpa,
        wind_speed_ms, wind_deg, clouds_pct, precip_mm, uvi, weather_main, weather_desc,
        aqi, aqi_pm2_5, aqi_pm10, aqi_o3, aqi_no2, aqi_so2, aqi_co, source
-     ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'openweather'
-     )
+     ) VALUES ${tuples.join(',')}
      ON CONFLICT (city_slug, date, source) DO UPDATE SET
        tz = COALESCE(EXCLUDED.tz, weather_daily.tz),
        -- Summary columns keep their previous value when a re-run only had AQI
@@ -428,31 +443,7 @@ export async function upsertWeatherDaily(row: {
        aqi_so2 = EXCLUDED.aqi_so2,
        aqi_co = EXCLUDED.aqi_co
     `,
-    [
-      row.city_slug,
-      row.date,
-      row.tz ?? null,
-      row.temp_min_c ?? null,
-      row.temp_max_c ?? null,
-      row.temp_day_c ?? null,
-      row.feels_like_day_c ?? null,
-      row.humidity ?? null,
-      row.pressure_hpa ?? null,
-      row.wind_speed_ms ?? null,
-      row.wind_deg ?? null,
-      row.clouds_pct ?? null,
-      row.precip_mm ?? null,
-      row.uvi ?? null,
-      row.weather_main ?? null,
-      row.weather_desc ?? null,
-      row.aqi ?? null,
-      row.aqi_pm2_5 ?? null,
-      row.aqi_pm10 ?? null,
-      row.aqi_o3 ?? null,
-      row.aqi_no2 ?? null,
-      row.aqi_so2 ?? null,
-      row.aqi_co ?? null,
-    ],
+    params,
   );
 }
 

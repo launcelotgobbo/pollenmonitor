@@ -1,13 +1,12 @@
-import { finishIngest, reserveOpenWeatherCall, startIngest } from '@/lib/db';
+import { finishIngest, startIngest } from '@/lib/db';
 import { ingestBudget, INGEST_BUDGET_MS } from '@/lib/ingest/budget';
 import { ingestConcurrency } from '@/lib/ingest/concurrency';
-import { ingestWeatherForCities } from '@/lib/ingest/weather-daily';
+import { createWeatherIngest, createWeatherQuota } from '@/lib/ingest/weather-daily';
 import {
   claimWeatherTask,
   finishWeatherTask,
   pendingWeatherTasks,
 } from '@/lib/ingest/weather-queue';
-import { openweatherDailyQuota } from '@/lib/provider-quota';
 
 export async function runWeatherWorker(jobId: string, budgetMs = INGEST_BUDGET_MS) {
   const started = Date.now();
@@ -15,40 +14,22 @@ export async function runWeatherWorker(jobId: string, budgetMs = INGEST_BUDGET_M
   let logId: string | undefined;
   let completed = 0;
   let failed = 0;
-  let quotaExhausted = false;
-  let openweatherCalls = 0;
+  const quota = createWeatherQuota('weather-ingest', jobId);
+  const weather = createWeatherIngest({ signal: budget.signal, onProviderCall: quota.reserve });
   try {
     logId = await startIngest('weather-ingest', { jobId });
     const workers = Array.from({ length: Math.min(ingestConcurrency(), 5) }, async () => {
-      while (!budget.signal.aborted && !quotaExhausted) {
+      while (!budget.signal.aborted && !quota.exhausted) {
         const task = await claimWeatherTask();
         if (!task) break;
-        const { summary } = await ingestWeatherForCities({
-          cities: [task.city],
-          fromISO: task.fromISO,
-          toISO: task.toISO,
-          signal: budget.signal,
-          onProviderCall: async () => {
-            if (
-              quotaExhausted ||
-              !(await reserveOpenWeatherCall(
-                'weather-ingest-openweather',
-                jobId,
-                openweatherDailyQuota(),
-              ))
-            ) {
-              quotaExhausted = true;
-              throw new Error('OpenWeather daily quota exhausted');
-            }
-            openweatherCalls++;
-          },
-        });
+        const result = await weather.ingestCity(task.city, task.fromISO, task.toISO);
+        const complete = result.ok && !result.summaryError;
         await finishWeatherTask(
           task,
-          summary.ok,
-          budget.signal.aborted ? 'timeout' : quotaExhausted ? 'quota' : 'provider',
+          complete,
+          budget.signal.aborted ? 'timeout' : quota.exhausted ? 'quota' : 'provider',
         );
-        if (summary.ok) completed++;
+        if (complete) completed++;
         else failed++;
       }
     });
@@ -66,8 +47,8 @@ export async function runWeatherWorker(jobId: string, budgetMs = INGEST_BUDGET_M
       failed,
       pending,
       timedOut: budget.signal.aborted,
-      quotaExhausted,
-      openweatherCalls,
+      quotaExhausted: quota.exhausted,
+      openweatherCalls: weather.calls,
       ms: Date.now() - started,
     };
     await finishIngest(logId, status, result);
@@ -78,7 +59,7 @@ export async function runWeatherWorker(jobId: string, budgetMs = INGEST_BUDGET_M
         ok: false,
         completed,
         failed,
-        openweatherCalls,
+        openweatherCalls: weather.calls,
         ms: Date.now() - started,
         error: 'Weather worker failed before completion',
       });

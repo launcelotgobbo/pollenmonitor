@@ -100,7 +100,7 @@ async function withStubbedFetch<T>(
 test('fetchDailyTimeline requests the 4.0 daily timeline once and maps the records', async () => {
   const calls: number[] = [];
   const { result, urls } = await withStubbedFetch(() =>
-    fetchDailyTimeline(39.74, -104.99, ['2026-07-07', '2026-07-08'], () => { calls.push(1); }),
+    fetchDailyTimeline(39.74, -104.99, ['2026-07-07', '2026-07-08'], () => calls.push(1)),
   );
 
   assert.equal(urls.length, 1);
@@ -222,7 +222,7 @@ test('fetchDailyTimeline counts every HTTP attempt toward the provider quota', a
   let attempts = 0;
   let served = 0;
   await withStubbedFetch(
-    () => fetchDailyTimeline(39.74, -104.99, ['2026-07-07'], () => { attempts++; }),
+    () => fetchDailyTimeline(39.74, -104.99, ['2026-07-07'], () => attempts++),
     () => (served++ === 0 ? new Response('busy', { status: 503 }) : null),
   );
   assert.equal(served, 2);

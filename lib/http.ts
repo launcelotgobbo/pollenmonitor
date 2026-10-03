@@ -9,7 +9,7 @@ export type RetryOptions = {
   timeoutMs?: number;
   // Called once per HTTP attempt, including retries, so quota accounting can
   // count what the provider actually saw rather than what the caller intended.
-  onAttempt?: () => void | Promise<void>;
+  onAttempt?: (() => void) | (() => Promise<void>);
   signal?: AbortSignal;
 };
 

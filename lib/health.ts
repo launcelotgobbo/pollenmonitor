@@ -82,6 +82,14 @@ export const HEALTH_SQL = `
   ),
   latest_weather AS (
     SELECT max(date) AS date FROM weather_daily WHERE city_slug = ANY($1::text[])
+  ),
+  weather_coverage AS (
+    SELECT count(DISTINCT city_slug)::text AS cities,
+           count(DISTINCT city_slug) FILTER (
+             WHERE temp_max_c IS NOT NULL AND aqi IS NOT NULL
+           )::text AS summaries
+    FROM weather_daily w, latest_weather lw
+    WHERE w.date = lw.date AND city_slug = ANY($1::text[])
   )
   SELECT
     cardinality($1::text[])::text AS expected_cities,
@@ -92,11 +100,8 @@ export const HEALTH_SQL = `
        WHERE ts >= now() - make_interval(hours => ${POLLEN_MAX_AGE_HOURS})
          AND city_slug = ANY($1::text[]))::text AS pollen_cities_recent,
     (SELECT to_char(date, 'YYYY-MM-DD') FROM latest_weather) AS latest_weather_date,
-    (SELECT count(DISTINCT city_slug) FROM weather_daily w, latest_weather lw
-       WHERE w.date = lw.date AND city_slug = ANY($1::text[]))::text AS weather_rows_latest,
-    (SELECT count(DISTINCT city_slug) FROM weather_daily w, latest_weather lw
-       WHERE w.date = lw.date AND w.temp_max_c IS NOT NULL AND w.aqi IS NOT NULL
-         AND city_slug = ANY($1::text[]))::text AS weather_summary_rows_latest,
+    (SELECT cities FROM weather_coverage) AS weather_rows_latest,
+    (SELECT summaries FROM weather_coverage) AS weather_summary_rows_latest,
     (SELECT to_char(ts AT TIME ZONE 'UTC', ${ISO_UTC}) FROM last_ingest) AS last_ingest_ts,
     (SELECT status FROM last_ingest) AS last_ingest_status,
     (SELECT details->>'wrote' FROM last_ingest) AS last_ingest_wrote,

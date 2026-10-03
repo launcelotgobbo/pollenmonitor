@@ -1,4 +1,4 @@
-import { fetchWithRetry } from '@/lib/http';
+import { fetchWithRetry, type RetryOptions } from '@/lib/http';
 import { parseUtcDate } from '@/lib/date';
 
 // One Call 3.0 is deprecated and can no longer be subscribed to; the 4.0 daily
@@ -123,7 +123,7 @@ function mapTimelineRecord(record: any, timezone: string | null): DailyWeather |
   };
 }
 
-async function fetchTimelinePage(url: string, onProviderCall?: () => void | Promise<void>, signal?: AbortSignal) {
+async function fetchTimelinePage(url: string, onProviderCall?: RetryOptions['onAttempt'], signal?: AbortSignal) {
   const res = await fetchWithRetry(url, undefined, { onAttempt: onProviderCall, signal });
   if (!res.ok) {
     throw new OpenWeatherSummaryError(res.status, await res.text());
@@ -140,7 +140,7 @@ export async function fetchDailyTimeline(
   lat: number,
   lon: number,
   dates: string[],
-  onProviderCall?: () => void | Promise<void>,
+  onProviderCall?: RetryOptions['onAttempt'],
   signal?: AbortSignal,
 ): Promise<Record<string, DailyWeather>> {
   const byDate: Record<string, DailyWeather> = {};
@@ -180,7 +180,7 @@ export async function fetchAirHistory(
   lon: number,
   fromISO: string,
   toISO: string,
-  onProviderCall?: () => void | Promise<void>,
+  onProviderCall?: RetryOptions['onAttempt'],
   signal?: AbortSignal,
 ): Promise<Array<{ ts: number, aqi: number, comps: any }>> {
   const key = process.env.OPENWEATHER_API_KEY || '';
@@ -213,7 +213,7 @@ export async function openweatherDailyWithAqi(
   lon: number,
   fromISO: string,
   toISO: string,
-  onProviderCall?: () => void | Promise<void>,
+  onProviderCall?: RetryOptions['onAttempt'],
   { includeSummary = true, signal }: { includeSummary?: boolean; signal?: AbortSignal } = {},
 ): Promise<OpenWeatherDailyResult> {
   const dates = utcDatesInWindow(fromISO, toISO);
