@@ -32,14 +32,23 @@ export function describeFreshness(report: HealthReport): Freshness {
   if (pollen && !pollen.ok) problems.push(`pollen ${pollenAge}`);
   if (weather && !weather.ok) {
     problems.push(
-      weather.ageDays === null ? 'weather missing' : `weather ${weather.ageDays}d old`,
+      weather.ageDays === null
+        ? 'weather missing'
+        : weather.expectedCities > 0 &&
+            weather.citiesWithSummary / weather.expectedCities < weather.minCoverage
+          ? `weather incomplete (${weather.citiesWithSummary}/${weather.expectedCities} cities)`
+          : `weather ${weather.ageDays}d old`,
     );
   }
   if (dailyIngest && !dailyIngest.ok) {
     problems.push(
       dailyIngest.status === 'failure'
         ? 'last ingest failed'
-        : `ingest ${formatAge(dailyIngest.ageHours)}`,
+        : dailyIngest.status === 'running'
+          ? 'ingest not completed'
+          : dailyIngest.status === 'partial'
+            ? 'last ingest incomplete'
+            : `ingest ${formatAge(dailyIngest.ageHours)}`,
     );
   }
   return {

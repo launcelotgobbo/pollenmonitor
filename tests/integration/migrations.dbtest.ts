@@ -56,6 +56,7 @@ test('repository migrations apply cleanly, are recorded, and are idempotent', { 
         'pollen_readings_hourly',
         'schema_migrations',
         'weather_daily',
+        'weather_ingest_tasks',
       ],
     );
     const { rows: policies } = await client.query(`SELECT 1 FROM pg_policies WHERE schemaname = 'public'`);

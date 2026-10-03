@@ -26,7 +26,18 @@ const healthy: HealthReport = {
       maxAgeHours: 30,
       citiesReporting: 174,
     },
-    weather: { ok: true, latestDate: '2026-09-24', ageDays: 0, maxAgeDays: 2, summaryCoverage: 1 },
+    weather: {
+      ok: true,
+      latestDate: '2026-09-24',
+      ageDays: 0,
+      maxAgeDays: 2,
+      summaryCoverage: 1,
+      expectedCities: 174,
+      citiesReporting: 174,
+      citiesWithSummary: 174,
+      cityCoverage: 1,
+      minCoverage: 0.95,
+    },
   },
 };
 
@@ -87,4 +98,26 @@ test('describeFreshness reports an unavailable database as down', () => {
   };
   assert.equal(describeFreshness(unavailable).tone, 'down');
   assert.equal(describeFreshness(unavailable).label, 'Status unavailable');
+});
+
+test('describeFreshness explains incomplete coverage and interrupted runs', () => {
+  const report: HealthReport = {
+    ...healthy,
+    ok: false,
+    status: 'degraded',
+    checks: {
+      ...healthy.checks,
+      dailyIngest: { ...healthy.checks.dailyIngest!, ok: false, status: 'running' },
+      weather: {
+        ...healthy.checks.weather!,
+        ok: false,
+        citiesWithSummary: 165,
+        summaryCoverage: 0.95,
+      },
+    },
+  };
+  assert.equal(
+    describeFreshness(report).detail,
+    'weather incomplete (165/174 cities), ingest not completed',
+  );
 });

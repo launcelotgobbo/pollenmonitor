@@ -10,6 +10,7 @@ import {
 } from '@/lib/ingest/schedule';
 import { isBearerAuthorized, isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
+import { enqueueWeather } from '@/lib/ingest/weather-queue';
 import { ambeeDailyQuota } from '@/lib/provider-quota';
 
 const CITY_GEOJSON_FILENAME = process.env.CITY_GEOJSON_FILENAME || 'us-top-175-cities.geojson';
@@ -97,6 +98,9 @@ export async function GET(req: NextRequest) {
     return Response.json(failure, { status: 500 });
   }
 
+  // Queue before pollen starts so even a killed pollen invocation cannot
+  // prevent the independent weather worker from making progress.
+  await enqueueWeather(cities, fromISO, toISO);
   const { result, httpStatus } = await runIngestJob({
     job: 'daily-ingest',
     logLabel: '[cron daily-ingest]',
@@ -104,6 +108,7 @@ export async function GET(req: NextRequest) {
     cities,
     fromISO,
     toISO,
+    includeWeather: false,
   });
 
   // Housekeeping rides along with the scheduled run; a pruning failure must
@@ -126,7 +131,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return Response.json({ ...result, retention }, { status: httpStatus });
+  return Response.json({ ...result, weatherQueued: cities.length, retention }, { status: httpStatus });
 }
 
 export const dynamic = 'force-dynamic';

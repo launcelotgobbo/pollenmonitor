@@ -549,7 +549,7 @@ export const OPENAPI_DOCUMENT = {
                 properties: {
                   ok: { type: 'boolean' },
                   lastRunAt: { type: ['string', 'null'], format: 'date-time' },
-                  status: { type: ['string', 'null'], enum: ['success', 'partial', 'failure', null] },
+                  status: { type: ['string', 'null'], enum: ['running', 'success', 'partial', 'failure', null] },
                   ageHours: { type: ['number', 'null'] },
                   maxAgeHours: { type: 'integer' },
                   wrote: { type: ['integer', 'null'] },
@@ -569,7 +569,8 @@ export const OPENAPI_DOCUMENT = {
               },
               weather: {
                 type: ['object', 'null'],
-                required: ['ok', 'latestDate', 'ageDays', 'maxAgeDays', 'summaryCoverage'],
+                required: ['ok', 'latestDate', 'ageDays', 'maxAgeDays', 'summaryCoverage',
+                  'expectedCities', 'citiesReporting', 'citiesWithSummary', 'cityCoverage', 'minCoverage'],
                 properties: {
                   ok: { type: 'boolean' },
                   latestDate: { type: ['string', 'null'], format: 'date' },
@@ -577,8 +578,13 @@ export const OPENAPI_DOCUMENT = {
                   maxAgeDays: { type: 'integer' },
                   summaryCoverage: {
                     type: ['number', 'null'],
-                    description: 'Share of the latest weather day with One Call summary fields present.',
+                    description: 'Share of the supported city catalog with both a daily summary and AQI on the latest weather day. At least 95% is required.',
                   },
+                  expectedCities: { type: 'integer' },
+                  citiesReporting: { type: 'integer' },
+                  citiesWithSummary: { type: 'integer' },
+                  cityCoverage: { type: ['number', 'null'] },
+                  minCoverage: { type: 'number', example: 0.95 },
                 },
               },
             },

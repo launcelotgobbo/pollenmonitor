@@ -14,11 +14,12 @@ import {
 const NOW = new Date('2026-09-24T15:00:00Z');
 
 const freshRow: HealthRow = {
+  expected_cities: '174',
   latest_pollen_ts: '2026-09-24T07:00:00Z',
   pollen_cities_recent: '174',
   latest_weather_date: '2026-09-24',
   weather_rows_latest: '174',
-  weather_summary_rows_latest: '87',
+  weather_summary_rows_latest: '174',
   last_ingest_ts: '2026-09-24T08:00:11Z',
   last_ingest_status: 'success',
   last_ingest_wrote: '174',
@@ -53,16 +54,60 @@ test('health report is ok when every source is inside its freshness window', () 
     latestDate: '2026-09-24',
     ageDays: 0,
     maxAgeDays: WEATHER_MAX_AGE_DAYS,
-    summaryCoverage: 0.5,
+    summaryCoverage: 1,
+    expectedCities: 174,
+    citiesReporting: 174,
+    citiesWithSummary: 174,
+    cityCoverage: 1,
+    minCoverage: 0.95,
   });
 });
 
-test('health report degrades when the ingest is stale, failed, or missing', () => {
-  const stale = buildHealthReport(
-    { ...freshRow, last_ingest_ts: '2026-09-23T08:00:00Z' },
-    5,
+test('fresh but incomplete city coverage reproduces the October 2 incident', () => {
+  const report = buildHealthReport(
+    {
+      ...freshRow,
+      weather_rows_latest: '30',
+      weather_summary_rows_latest: '4',
+    },
+    53,
     NOW,
   );
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.dailyIngest?.ok, true);
+  assert.equal(report.checks.weather?.ok, false);
+  assert.equal(report.checks.weather?.summaryCoverage, 0.02);
+  assert.equal(report.checks.weather?.cityCoverage, 0.17);
+  assert.equal(report.checks.weather?.citiesWithSummary, 4);
+});
+
+test('health rejects incomplete runs and checks unrounded catalog coverage', () => {
+  for (const status of ['running', 'partial', 'failure']) {
+    const report = buildHealthReport({ ...freshRow, last_ingest_status: status }, 1, NOW);
+    assert.equal(report.checks.dailyIngest?.ok, false, status);
+  }
+  // 165/174 rounds to 0.95 but is below the actual 95% threshold.
+  for (const [count, ok] of [
+    ['165', false],
+    ['166', true],
+  ] as const) {
+    const report = buildHealthReport(
+      {
+        ...freshRow,
+        weather_summary_rows_latest: count,
+        pollen_cities_recent: count,
+      },
+      1,
+      NOW,
+    );
+    assert.equal(report.checks.weather?.ok, ok);
+    assert.equal(report.checks.pollen?.ok, ok);
+  }
+  assert.equal(buildHealthReport({ ...freshRow, expected_cities: '0' }, 1, NOW).ok, false);
+});
+
+test('health report degrades when the ingest is stale, failed, or missing', () => {
+  const stale = buildHealthReport({ ...freshRow, last_ingest_ts: '2026-09-23T08:00:00Z' }, 5, NOW);
   assert.equal(stale.ok, false);
   assert.equal(stale.status, 'degraded');
   assert.equal(stale.checks.dailyIngest?.ok, false);
