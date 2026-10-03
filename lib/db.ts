@@ -271,6 +271,51 @@ export async function logIngest(job: string, status: string, details: Record<str
   } catch {}
 }
 
+// Unlike best-effort legacy logs, a run must be recorded before it can spend
+// provider quota. A killed function leaves an observable `running` record.
+export async function startIngest(job: string, details: Record<string, unknown>) {
+  const { rows } = await q<{ id: string }>(
+    `INSERT INTO ingest_logs (job, status, details)
+     VALUES ($1, 'running', $2::jsonb) RETURNING id::text`,
+    [job, JSON.stringify({ ...details, startedAt: new Date().toISOString() })],
+  );
+  return rows[0].id;
+}
+
+export async function finishIngest(id: string, status: string, details: Record<string, unknown>) {
+  await q(
+    `UPDATE ingest_logs SET ts = now(), status = $2, details = details || $3::jsonb
+     WHERE id = $1::bigint`,
+    [id, status, JSON.stringify(details)],
+  );
+}
+
+// Reserve and record each OpenWeather attempt before making it. Separate
+// statements under the lock give waiting transactions a fresh usage snapshot.
+// This includes retries and survives a worker being killed before completion.
+export async function reserveOpenWeatherCall(job: string, jobId: string, quota: number) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('openweather-daily-quota'))`);
+    const result = await client.query(
+      `INSERT INTO ambee_usage_logs (job, job_id, ambee_calls)
+       SELECT $1, $2, 1
+       WHERE (SELECT COALESCE(sum(ambee_calls), 0) FROM ambee_usage_logs
+              WHERE job LIKE '%openweather%'
+                AND ts >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') < $3`,
+      [job, jobId, quota],
+    );
+    await client.query('COMMIT');
+    return result.rowCount === 1;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw new DatabaseOperationError(classifyDatabaseError(error), errorCode(error), error);
+  } finally {
+    client.release();
+  }
+}
+
 // Records API call counts for any provider; the table predates the
 // OpenWeather integration, hence the ambee_* naming.
 export async function logProviderUsage(job: string, jobId: string | null, calls: number, notes?: Record<string, any>) {

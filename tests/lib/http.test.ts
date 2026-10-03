@@ -25,9 +25,8 @@ async function withStubbedFetch<T>(
 const fastRetry = { retries: 2, baseDelayMs: 1, maxDelayMs: 2 };
 
 test('fetchWithRetry returns immediately on success', async () => {
-  const { result, calls } = await withStubbedFetch(
-    [new Response('ok', { status: 200 })],
-    () => fetchWithRetry('https://example.com', undefined, fastRetry),
+  const { result, calls } = await withStubbedFetch([new Response('ok', { status: 200 })], () =>
+    fetchWithRetry('https://example.com', undefined, fastRetry),
   );
   assert.equal(result.status, 200);
   assert.equal(calls, 1);
@@ -47,18 +46,16 @@ test('fetchWithRetry retries 5xx responses and succeeds', async () => {
 });
 
 test('fetchWithRetry returns the last 5xx response once retries are exhausted', async () => {
-  const { result, calls } = await withStubbedFetch(
-    [new Response('boom', { status: 502 })],
-    () => fetchWithRetry('https://example.com', undefined, fastRetry),
+  const { result, calls } = await withStubbedFetch([new Response('boom', { status: 502 })], () =>
+    fetchWithRetry('https://example.com', undefined, fastRetry),
   );
   assert.equal(result.status, 502);
   assert.equal(calls, 3);
 });
 
 test('fetchWithRetry does not retry 429 quota responses', async () => {
-  const { result, calls } = await withStubbedFetch(
-    [new Response('limit', { status: 429 })],
-    () => fetchWithRetry('https://example.com', undefined, fastRetry),
+  const { result, calls } = await withStubbedFetch([new Response('limit', { status: 429 })], () =>
+    fetchWithRetry('https://example.com', undefined, fastRetry),
   );
   assert.equal(result.status, 429);
   assert.equal(calls, 1);
@@ -66,9 +63,8 @@ test('fetchWithRetry does not retry 429 quota responses', async () => {
 
 test('fetchWithRetry retries network errors and rethrows the final one', async () => {
   await assert.rejects(
-    withStubbedFetch(
-      [new Error('ECONNRESET')],
-      () => fetchWithRetry('https://example.com', undefined, fastRetry),
+    withStubbedFetch([new Error('ECONNRESET')], () =>
+      fetchWithRetry('https://example.com', undefined, fastRetry),
     ),
     /ECONNRESET/,
   );
@@ -87,7 +83,13 @@ test('fetchWithRetry reports every attempt, including retries', async () => {
   let attempts = 0;
   const { calls } = await withStubbedFetch(
     [new Response('boom', { status: 500 }), new Response('ok', { status: 200 })],
-    () => fetchWithRetry('https://example.com', undefined, { ...fastRetry, onAttempt: () => attempts++ }),
+    () =>
+      fetchWithRetry('https://example.com', undefined, {
+        ...fastRetry,
+        onAttempt: () => {
+          attempts++;
+        },
+      }),
   );
   assert.equal(calls, 2);
   assert.equal(attempts, 2);
@@ -146,5 +148,63 @@ test('fetchWithRetry does not retry when the caller aborts', async () => {
     assert.equal(signals.length, 1);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('fetchWithRetry stops before reservations or requests when already aborted', async () => {
+  let reservations = 0;
+  await withStubbedFetch([new Response('must not be fetched')], async () => {
+    await assert.rejects(
+      fetchWithRetry('https://example.com', undefined, {
+        signal: AbortSignal.abort(new Error('budget spent')),
+        onAttempt: async () => {
+          reservations++;
+        },
+      }),
+      /budget spent/,
+    );
+  }).then(({ calls }) => assert.equal(calls, 0));
+  assert.equal(reservations, 0);
+});
+
+test('fetchWithRetry awaits reservations and never retries a denied quota', async () => {
+  let reservations = 0;
+  const { calls } = await withStubbedFetch([new Response('must not be fetched')], async () => {
+    await assert.rejects(
+      fetchWithRetry('https://example.com', undefined, {
+        ...fastRetry,
+        onAttempt: async () => {
+          reservations++;
+          throw new Error('quota exhausted');
+        },
+      }),
+      /quota exhausted/,
+    );
+  });
+  assert.equal(reservations, 1);
+  assert.equal(calls, 0);
+});
+
+test('fetchWithRetry aborts backoff without starting another paid attempt', async () => {
+  const controller = new AbortController();
+  let attempts = 0;
+  const timer = setTimeout(() => controller.abort(), 20);
+  try {
+    const { calls } = await withStubbedFetch([new Response('busy', { status: 503 })], async () => {
+      await assert.rejects(
+        fetchWithRetry('https://example.com', undefined, {
+          signal: controller.signal,
+          baseDelayMs: 10_000,
+          onAttempt: async () => {
+            attempts++;
+          },
+        }),
+        (error: any) => error.name === 'AbortError',
+      );
+    });
+    assert.equal(calls, 1);
+    assert.equal(attempts, 1);
+  } finally {
+    clearTimeout(timer);
   }
 });

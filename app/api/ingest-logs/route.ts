@@ -8,7 +8,7 @@ import {
 import { query, TS_ISO } from '@/lib/db';
 import { isIngestAuthorized, unauthorized } from '@/lib/ingest-auth';
 
-const STATUSES = new Set(['success', 'partial', 'failure']);
+const STATUSES = new Set(['running', 'success', 'partial', 'failure']);
 
 export async function GET(req: NextRequest) {
   // Job details carry upstream provider errors and operational state, so this

@@ -1,4 +1,5 @@
-import { logIngest, logProviderUsage } from '@/lib/db';
+import { startIngest, finishIngest, logProviderUsage, reserveOpenWeatherCall } from '@/lib/db';
+import { ingestBudget } from '@/lib/ingest/budget';
 import type { City } from '@/lib/ingest/cities';
 import {
   ingestHourlyForCities,
@@ -28,9 +29,36 @@ export type IngestJobOptions = {
   dryRun?: boolean;
   includePollen?: boolean;
   includeWeather?: boolean;
+  signal?: AbortSignal;
 };
 
-export async function runIngestJob({
+export async function runIngestJob(options: IngestJobOptions) {
+  const budget = ingestBudget();
+  try {
+    const id = await startIngest(options.job, {
+      jobId: options.jobId,
+      from: options.fromISO,
+      to: options.toISO,
+      cities: options.cities.length,
+      dryRun: options.dryRun ?? false,
+    });
+    try {
+      return await executeIngestJob({
+        ...options,
+        signal: options.signal
+          ? AbortSignal.any([options.signal, budget.signal])
+          : budget.signal,
+      }, id);
+    } catch (error) {
+      await finishIngest(id, 'failure', { ok: false, error: 'Ingest failed before completion' });
+      throw error;
+    }
+  } finally {
+    budget.dispose();
+  }
+}
+
+async function executeIngestJob({
   job,
   logLabel,
   jobId,
@@ -40,7 +68,8 @@ export async function runIngestJob({
   dryRun = false,
   includePollen = true,
   includeWeather = true,
-}: IngestJobOptions): Promise<{ result: Record<string, any>; httpStatus: number }> {
+  signal,
+}: IngestJobOptions, logId: string): Promise<{ result: Record<string, any>; httpStatus: number }> {
   if (!includePollen && !includeWeather) {
     throw new Error('runIngestJob needs at least one of includePollen or includeWeather');
   }
@@ -67,6 +96,7 @@ export async function runIngestJob({
       fromISO,
       toISO,
       dryRun,
+      signal,
       onCityComplete: (outcome) => {
         if (outcome.ok) {
           console.log(`${logLabel} city success`, {
@@ -122,6 +152,12 @@ export async function runIngestJob({
       fromISO,
       toISO,
       dryRun,
+      signal,
+      onProviderCall: async () => {
+        if (!await reserveOpenWeatherCall(`${job}-openweather`, jobId, openweatherQuota)) {
+          throw new Error('OpenWeather daily quota exhausted');
+        }
+      },
       onCityComplete: (outcome) => {
         if (outcome.ok) {
           console.log(`${logLabel} weather success`, {
@@ -186,6 +222,7 @@ export async function runIngestJob({
       ? { summary: weatherSummary, cityResults: weatherResults.map(({ stack, ...rest }) => rest) }
       : null,
     status,
+    timedOut: signal?.aborted ?? false,
   };
 
   console.log(`${logLabel} completed`, {
@@ -216,7 +253,7 @@ export async function runIngestJob({
     });
   }
 
-  await logIngest(job, status, result);
+  await finishIngest(logId, status, result);
 
   const usageNotes = {
     window: { from: fromISO, to: toISO },
@@ -227,12 +264,7 @@ export async function runIngestJob({
   if (result.ambeeCalls > 0) {
     await logProviderUsage(job, jobId, result.ambeeCalls, usageNotes);
   }
-  if (openweatherCalls > 0) {
-    await logProviderUsage(`${job}-openweather`, jobId, openweatherCalls, {
-      ...usageNotes,
-      status: weatherSummary?.ok ? 'success' : 'partial',
-    });
-  }
+  // OpenWeather attempts were already durably reserved before each request.
 
   // With pollen in the run the HTTP status follows the pollen pass, as before;
   // a weather-only run has nothing else to report on.

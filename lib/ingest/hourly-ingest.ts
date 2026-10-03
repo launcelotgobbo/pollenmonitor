@@ -30,12 +30,14 @@ export async function ingestHourlyForCities({
   toISO,
   dryRun = false,
   onCityComplete,
+  signal,
 }: {
   cities: City[];
   fromISO: string;
   toISO: string;
   dryRun?: boolean;
   onCityComplete?: (result: CityIngestResult) => void;
+  signal?: AbortSignal;
 }): Promise<{ summary: HourlyIngestSummary; cityResults: CityIngestResult[] }> {
   const start = Date.now();
   let wrote = 0;
@@ -45,7 +47,9 @@ export async function ingestHourlyForCities({
 
   const cityResults = await mapWithConcurrency(cities, ingestConcurrency(), async (city) => {
     try {
+      signal?.throwIfAborted();
       const hours = await ambeeHourlyRange(city.lat, city.lon, fromISO, toISO, {
+        signal,
         onAttempt: () => {
           ambeeCalls += 1;
         },

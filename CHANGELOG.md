@@ -1,5 +1,26 @@
 # API Changelog
 
+## Unreleased
+
+### Fixed
+
+- Daily pollen ingestion no longer waits for OpenWeather. Weather cities are
+  queued durably and processed by a separate hourly cron with a four-minute
+  time budget. Retries resume unfinished cities without refetching pollen.
+- Ingest runs persist a `running` record before starting, then update it to
+  `success`, `partial`, or `failure`. Interrupted runs are no longer invisible.
+- OpenWeather attempts, including retries and manual/dry runs, reserve a
+  shared daily request budget before hitting the provider.
+- `/api/health` requires successful daily pollen ingestion and at least 95%
+  coverage of the supported city catalog for fresh pollen and weather.
+  Weather coverage includes both daily summaries and AQI; a handful of fresh
+  rows no longer makes an incomplete weather import healthy. The response adds
+  `expectedCities`, `citiesReporting`, `citiesWithSummary`, `cityCoverage`, and
+  `minCoverage` to the weather check; `summaryCoverage` uses the full catalog.
+
+Apply migration `010_weather_ingest_queue.sql` with `npm run db:migrate`
+before deploying this release.
+
 ## 2.5.1 — 2026-09-25
 
 ### Changed

@@ -1,5 +1,5 @@
 import type { City } from '@/lib/ingest/cities';
-import { OpenWeatherSummaryError, openweatherDailyWithAqi } from '@/lib/weather/openweather';
+import { OpenWeatherSummaryError, openweatherDailyWithAqi, utcDatesInWindow } from '@/lib/weather/openweather';
 import { upsertWeatherDaily } from '@/lib/db';
 import { ingestConcurrency, mapWithConcurrency } from '@/lib/ingest/concurrency';
 
@@ -25,7 +25,7 @@ export type WeatherIngestSummary = {
   openweatherCalls: number;
 };
 
-export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = false, onCityComplete, }: { cities: City[]; fromISO: string; toISO: string; dryRun?: boolean; onCityComplete?: (r: CityWeatherResult) => void; }): Promise<{ summary: WeatherIngestSummary; cityResults: CityWeatherResult[] }> {
+export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = false, onCityComplete, signal, onProviderCall, }: { cities: City[]; fromISO: string; toISO: string; dryRun?: boolean; onCityComplete?: (r: CityWeatherResult) => void; signal?: AbortSignal; onProviderCall?: () => Promise<void>; }): Promise<{ summary: WeatherIngestSummary; cityResults: CityWeatherResult[] }> {
   const start = Date.now();
   let wrote = 0;
   let failed = 0;
@@ -36,16 +36,18 @@ export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = 
 
   const cityResults = await mapWithConcurrency(cities, ingestConcurrency(), async (city) => {
     try {
+      signal?.throwIfAborted();
       const skipSummary = summaryUnavailable !== null;
       const { byDate, summaryError } = await openweatherDailyWithAqi(
         city.lat,
         city.lon,
         fromISO,
         toISO,
-        () => {
+        async () => {
+          await onProviderCall?.();
           openweatherCalls += 1;
         },
-        { includeSummary: !skipSummary },
+        { includeSummary: !skipSummary, signal },
       );
       if (summaryError instanceof OpenWeatherSummaryError && summaryError.affectsAllCities) {
         summaryUnavailable ??= summaryError;
@@ -53,6 +55,7 @@ export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = 
       const dates = Object.keys(byDate);
       if (!dryRun) {
         for (const d of dates) {
+          signal?.throwIfAborted();
           const w = byDate[d];
           await upsertWeatherDaily({
             city_slug: city.slug,
@@ -86,7 +89,11 @@ export async function ingestWeatherForCities({ cities, fromISO, toISO, dryRun = 
       const result: CityWeatherResult = { city: city.slug, daysFetched: dates.length, ok: true };
       const summaryMessage = skipSummary
         ? `skipped: ${summaryUnavailable?.message}`
-        : summaryError?.message;
+        : summaryError?.message ?? (
+          utcDatesInWindow(fromISO, toISO).every((date) =>
+            byDate[date]?.temp_max_c != null && byDate[date]?.aqi != null,
+          ) ? undefined : 'Incomplete daily weather coverage'
+        );
       if (summaryMessage) {
         summaryFailures++;
         result.summaryError = summaryMessage;

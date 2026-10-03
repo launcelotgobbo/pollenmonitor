@@ -38,6 +38,7 @@ export const APP_TABLES = [
   'weather_daily',
   'ingest_logs',
   'ambee_usage_logs',
+  'weather_ingest_tasks',
 ] as const;
 
 export function connectTestClient(): Promise<Client> {

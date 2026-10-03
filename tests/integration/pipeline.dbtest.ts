@@ -14,6 +14,10 @@ import { evaluateHealth } from '@/lib/health';
 import type { City } from '@/lib/ingest/cities';
 import { runIngestJob } from '@/lib/ingest/run-ingest';
 import { getDailyPollenRows, getHourlyPollenRows } from '@/lib/pollen';
+import { NextRequest } from 'next/server';
+import { GET as dailyCron } from '@/app/api/cron/daily-ingest/route';
+import { loadTopCities } from '@/lib/ingest/cities';
+import { pendingWeatherTasks } from '@/lib/ingest/weather-queue';
 
 const skip = TEST_DATABASE_URL ? false : 'POSTGRES_TEST_URL not set';
 
@@ -236,14 +240,14 @@ test('daily ingest writes pollen, weather, logs, and usage, and health turns gre
     assert.equal('stack' in (logs[0].details.cityResults[0] ?? {}), false);
 
     const { rows: usage } = await query<{ job: string; ambee_calls: number }>(
-      `SELECT job, ambee_calls FROM ambee_usage_logs ORDER BY job`,
+      `SELECT job, sum(ambee_calls)::int AS ambee_calls FROM ambee_usage_logs GROUP BY job ORDER BY job`,
     );
     assert.deepEqual(usage, [
       { job: 'daily-ingest', ambee_calls: 2 },
       { job: 'daily-ingest-openweather', ambee_calls: 4 },
     ]);
 
-    const health = await evaluateHealth();
+    const health = await evaluateHealth(query, new Date(), cities.map((city) => city.slug));
     assert.equal(health.ok, true, JSON.stringify(health));
     assert.equal(health.checks.pollen?.citiesReporting, 2);
     assert.equal(health.checks.weather?.summaryCoverage, 1);
@@ -274,7 +278,7 @@ test('an Ambee quota failure is logged as partial and still counts the attempt',
     const health = await evaluateHealth();
     assert.equal(health.ok, false);
     assert.equal(health.checks.pollen?.ok, false);
-    assert.equal(health.checks.dailyIngest?.ok, true, 'partial runs are not treated as failures');
+    assert.equal(health.checks.dailyIngest?.ok, false, 'partial runs must not pass health');
   } finally {
     providers.restore();
   }
@@ -352,7 +356,7 @@ test('weather-only runs skip Ambee and the daily summary and log only OpenWeathe
     assert.ok(Number(rows[0].weather) >= 4, 'two cities across at least two UTC days');
 
     const { rows: usage } = await query<{ job: string; ambee_calls: number }>(
-      `SELECT job, ambee_calls FROM ambee_usage_logs ORDER BY job`,
+      `SELECT job, sum(ambee_calls)::int AS ambee_calls FROM ambee_usage_logs GROUP BY job ORDER BY job`,
     );
     assert.deepEqual(usage, [{ job: 'manual-ingest-openweather', ambee_calls: 4 }]);
     const { rows: logs } = await query<{ status: string; details: any }>(`SELECT status, details FROM ingest_logs`);
@@ -401,7 +405,7 @@ test('weather-only outcomes follow the weather pass: all failed is a 500, summar
   }
 });
 
-test('dry runs touch neither data tables nor usage logs beyond the run record', { skip }, async () => {
+test('dry runs do not write observations but still account for real provider calls', { skip }, async () => {
   const providers = stubProviders();
   try {
     const { fromISO, toISO } = ingestWindow();
@@ -416,7 +420,7 @@ test('dry runs touch neither data tables nor usage logs beyond the run record', 
               (SELECT count(*) FROM ambee_usage_logs)::text AS usage,
               (SELECT count(*) FROM ingest_logs)::text AS logs`,
     );
-    assert.deepEqual(rows[0], { pollen: '0', daily: '0', weather: '0', usage: '2', logs: '1' });
+    assert.deepEqual(rows[0], { pollen: '0', daily: '0', weather: '0', usage: '5', logs: '1' });
   } finally {
     providers.restore();
   }
@@ -482,4 +486,53 @@ test('health reports degraded, not unavailable, on an empty database', { skip },
   assert.equal(health.checks.pollen?.citiesReporting, 0);
   assert.equal(health.checks.weather?.summaryCoverage, null);
   assert.equal(health.checks.dailyIngest?.lastRunAt, null);
+});
+
+test('daily cron queues weather but completes pollen without contacting OpenWeather', { skip }, async (t) => {
+  t.mock.method(console, 'log', () => {});
+  const providers = stubProviders();
+  const previous = process.env.INGEST_TOKEN;
+  process.env.INGEST_TOKEN = 'daily-cron-test';
+  try {
+    const catalog = await loadTopCities();
+    const response = await withProviderEnv(() => dailyCron(new NextRequest(
+      'https://example.com/api/cron/daily-ingest',
+      { headers: { 'x-ingest-token': 'daily-cron-test' } },
+    )));
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.status, 'success');
+    assert.equal(result.includeWeather, false);
+    assert.equal(result.weatherQueued, catalog.length);
+    assert.equal(await pendingWeatherTasks(), catalog.length);
+    assert.deepEqual(providers.calls, { ambee: catalog.length, timeline: 0, air: 0 });
+    const { rows } = await query(`SELECT status, details FROM ingest_logs WHERE job = 'daily-ingest'`);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, 'success');
+    assert.equal(rows[0].details.wrote, catalog.length);
+    assert.ok(rows[0].details.startedAt);
+  } finally {
+    providers.restore();
+    if (previous === undefined) delete process.env.INGEST_TOKEN;
+    else process.env.INGEST_TOKEN = previous;
+  }
+});
+
+test('an exhausted ingest budget records failure before making provider calls', { skip }, async (t) => {
+  t.mock.method(console, 'log', () => {});
+  t.mock.method(console, 'error', () => {});
+  const providers = stubProviders();
+  try {
+    const { result, httpStatus } = await runIngestJob({
+      job: 'daily-ingest', logLabel: '[test]', jobId: 'budget-exhausted',
+      cities, ...ingestWindow(), includeWeather: false,
+      signal: AbortSignal.abort(new Error('budget exhausted')),
+    });
+    assert.equal(httpStatus, 500);
+    assert.equal(result.timedOut, true);
+    assert.deepEqual(providers.calls, { ambee: 0, timeline: 0, air: 0 });
+    const { rows } = await query(`SELECT status, details FROM ingest_logs`);
+    assert.equal(rows[0].status, 'failure');
+    assert.equal(rows[0].details.timedOut, true);
+  } finally { providers.restore(); }
 });
